@@ -1,11 +1,6 @@
 import { OpenAI } from 'openai';
 import { NextResponse } from 'next/server';
-
-interface AIResponseData {
-  title?: string;
-  selling_points?: string[] | string;
-  atmosphere?: string;
-}
+import { AIContent } from '@/src/types';
 
 const client = new OpenAI({
   apiKey: process.env.VOLC_API_KEY,
@@ -18,14 +13,10 @@ export async function POST(req: Request) {
   try {
     const { imageUrl, userPrompt } = await req.json();
 
-    if (!imageUrl) {
-      return NextResponse.json({ success: false, error: "缺少 imageUrl" }, { status: 400 });
-    }
-
     const targetModel = process.env.VOLC_ENDPOINT_ID!; 
 
     const systemPrompt = `
-    你是一位资深电商运营专家。请根据商品主图和描述，生成结构化素材。
+    你是一位资深电商运营专家。请根据用户提供的商品信息（图片或文字描述），生成结构化素材。
     
     严格遵守 JSON 格式返回：
     {
@@ -57,7 +48,7 @@ export async function POST(req: Request) {
 
     const aiRawText = response.choices[0].message.content;
     
-    let parsedData: AIResponseData = {};
+    let parsedData: Partial<AIContent> & Record<string,unknown> = {};
     
     try {
       const cleanJson = aiRawText?.replace(/```json|```/g, '').trim();
@@ -66,35 +57,37 @@ export async function POST(req: Request) {
       console.log("JSON 解析失败，尝试直接处理文本");
     }
 
+    // 3. 数据清洗与标准化
     let cleanSellingPoints: string[] = [];
-
     const rawPoints = parsedData.selling_points;
 
+    // 无论 AI 返回的是字符串还是数组，统一转成 string[]
     if (Array.isArray(rawPoints)) {
       cleanSellingPoints = rawPoints
         .map(p => String(p))
         .flatMap(p => p.split(/[\n\r]+|(\d+\.\s+)/))
         .map(p => p.replace(/^\d+\.|^[-*]\s+/, '').trim())
         .filter(p => p && p.length > 2);
-        
-      if (cleanSellingPoints.length === 0 && rawPoints.length > 0) {
-          cleanSellingPoints = rawPoints.map(String);
-      }
     } else if (typeof rawPoints === 'string') {
       cleanSellingPoints = [rawPoints];
+    } else {
+      // 如果完全没提取到，给个默认值
+      cleanSellingPoints = ["卖点提取中..."];
     }
+
+    // 4. 组装最终返回数据，严格符合 AIContent 结构
+    const finalData: AIContent = {
+      title: parsedData.title || "生成标题失败",
+      selling_points: cleanSellingPoints,
+      atmosphere: parsedData.atmosphere || "氛围感生成中...",
+    };
 
     return NextResponse.json({
       success: true,
-      data: {
-        title: parsedData.title || "生成标题失败",
-        selling_points: cleanSellingPoints.length > 0 ? cleanSellingPoints : ["卖点提取失败"],
-        atmosphere: parsedData.atmosphere || "",
-      }
+      data: finalData 
     });
 
   } catch (error: unknown) { 
-
     console.error("API 调用出错:", error);
     
     let errorMessage = "未知错误";
