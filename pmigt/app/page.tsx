@@ -11,10 +11,11 @@ import { createClient } from '@/utils/supabase/client';
 // 导入 Hook 和常量
 import { useFileUploader } from "@/hooks/useFileUploader"; 
 
-// 定义消息类型，区分发送者
+// 定义消息类型(包含文字和图片)，区分发送者
 interface Message {
   text: string;
   sender: "user" | "ai";
+  imageUrl?: string;
 }
 
 export default function HomePage() {
@@ -46,11 +47,13 @@ export default function HomePage() {
     const ensureUserSession = async () => {
       // 检查当前会话
       const { data: { user } } = await supabase.auth.getUser();
+      console.log("用户：", user);
       
       if (!user) {
         setAuthStatus("Session not found, attempting anonymous sign-in...");
         // 自动创建新用户 (匿名登录)
         const { data, error } = await supabase.auth.signInAnonymously();
+        console.log("创建新用户：", data);
         if (error) {
           setAuthStatus(`Anonymous sign-in failed: ${error.message}`);
           console.error("Anonymous Sign-in Error:", error);
@@ -133,33 +136,40 @@ export default function HomePage() {
 
     // 确保认证已完成
     if (authStatus.startsWith('Initializing') || authStatus.startsWith('❌')) {
-      setMessages((prev) => [...prev, { text: "❌ 认证会话正在初始化或已失败，请稍候再试。", sender: "ai" }]);
+      setMessages((prev) => [...prev, { text: " 认证会话正在初始化或已失败，请稍候再试。", sender: "ai" }]);
       return;
     }
     
-    let finalImageUrl: string | null = null;
+    //用局部变量effectiveImageUrl保存当前会话最新商品图
+    let effectiveImageUrl = currentSessionImageUrl;
 
     // 确定最终发送的图片 URL (优先级：新上传文件 -> 会话图 )
+    // 如果有新文件，则先上传，并获取 URL
     if (uploadedFile) {
-      // 如果有新文件，则先上传，并获取 URL
-      finalImageUrl = await uploadFileToSupabase(uploadedFile);
-      if (!finalImageUrl) return; // 上传失败，终止发送
-    } else if (currentSessionImageUrl) {
-      // 没有新文件，使用会话中已有的图
-      finalImageUrl = currentSessionImageUrl;
+      const newUrl = await uploadFileToSupabase(uploadedFile);
+      if (!newUrl) {
+        setMessages((prev) => [...prev, { text: "图片上传失败，请重试。", sender: "ai" }]);
+        return;
+      } // 上传失败，终止发送
+      effectiveImageUrl = newUrl;//更新图片
+      setCurrentSessionImageUrl(newUrl);//更新全局会话状态
     }
 
-    // 检查发送有效性（首次发送或后续发送必须有指令或图片）
-    if (!trimmedInput && !finalImageUrl) {
-      const errorMsg: Message = { text: "请先上传一张图片或输入指令。", sender: "ai" };
+    // 若当前会话未上传过图片，拦截请求
+    if (!effectiveImageUrl) {
+      const errorMsg: Message = {
+        text: "当前会话需要一张商品参考图，请先上传一张商品图片。",
+        sender: "ai"
+      };
       setMessages((prev) => [...prev, errorMsg]);
       return;
     }
 
     // 立即显示用户消息
     const userMessage: Message = { 
-      text: `【图 URL: ${finalImageUrl ? '有' : '无'}】Prompt: ${trimmedInput || '无指令'}`, 
-      sender: "user" 
+      text: trimmedInput, 
+      sender: "user",
+      imageUrl: uploadedFile ? effectiveImageUrl : undefined
     };
     setMessages((prev) => [...prev, userMessage]);
 
@@ -167,10 +177,6 @@ export default function HomePage() {
     // 启动加载状态并更新图片会话状态
     setIsLoading(true);
     setInput("");
-    
-    if (uploadedFile && finalImageUrl) {
-      setCurrentSessionImageUrl(finalImageUrl); // 替换/设置会话图片
-    }
     clearFile(); // 清除本地文件预览状态
 
 
@@ -180,10 +186,10 @@ export default function HomePage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          imageUrl: finalImageUrl, 
+          imageUrl: effectiveImageUrl, 
           userPrompt: trimmedInput,
-          // 发送历史消息 (用于多轮上下文)
-          history: messages.map(msg => ({ sender: msg.sender, text: msg.text })) 
+          // // 发送历史消息 (用于多轮上下文)
+          // history: messagesRef.current.map(msg => ({ sender: msg.sender, text: msg.text }))
         }),
       });
       
@@ -193,7 +199,7 @@ export default function HomePage() {
       if (result.success) {
         const data = result.data;
         const responseText = `
-          **素材生成成功！**
+          素材生成成功！
           标题：${data.title}
           卖点：${data.selling_points.join(' | ')}
           氛围：${data.atmosphere}
@@ -283,12 +289,23 @@ export default function HomePage() {
                 }`}
               >
                 <div
-                  className={`max-w-[80%] px-4 py-3 rounded-2xl shadow-md whitespace-pre-wrap ${
+                  className={`max-w-[80%] px-4 py-3 rounded-2xl shadow-md whitespace-pre-wrap break-words ${
                     msg.sender === "user"
                       ? "bg-gradient-to-r from-[#ff004f] to-[#2d5bff] text-white rounded-br-none" 
                       : "bg-white text-gray-800 border border-gray-200 rounded-tl-none"
                   }`}
                 >
+                  {/* 渲染图片(若存在) */}
+                  {msg.imageUrl && (
+                    <div className="mb-2">
+                      <img
+                        src={msg.imageUrl}
+                        alt="发送的图片"
+                        className="rounded-lg max-w-full h-auto object-cover max-h-64"
+                      />
+                    </div>
+                  )}
+                  {/* 渲染文字 */}
                   <p className="text-sm">{msg.text}</p>
                 </div>
               </div>
