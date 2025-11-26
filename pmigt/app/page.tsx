@@ -1,28 +1,29 @@
 "use client";
 
-import { useState, useCallback, useRef, useMemo,useEffect } from "react";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import { Separator } from "@/components/ui/separator";
-import { MessageCircle, Send, Upload, X, Loader2 } from "lucide-react";
+import { useState, useCallback, useRef,useEffect } from "react";
+import { ChatLayout } from "@/components/chat/ChatLayout";
+import { ChatMessageList } from "@/components/chat/ChatMessageList";
+import { ChatInputArea } from "@/components/chat/ChatInputArea";
 import { createClient } from '@/utils/supabase/client'; 
+
+import { UIMessage, UISession } from '@/src/types/index'
+
 
 // 导入 Hook 和常量
 import { useFileUploader } from "@/hooks/useFileUploader"; 
 
-// 定义消息类型(包含文字和图片)，区分发送者
-interface Message {
-  text: string;
-  sender: "user" | "ai";
-  imageUrl?: string;
-}
+// 会话列表模拟
+const DUMMY_SESSIONS = [
+  { id: 's1', name: '图片素材生成 (1)', isActive: true },
+  { id: 's2', name: '电商宣传文案 (2)', isActive: false },
+  { id: 's3', name: '周报总结草稿 (3)', isActive: false },
+];
 
 export default function HomePage() {
   const supabase = createClient();
   const [authStatus, setAuthStatus] = useState('Initializing...');
 
-  const [messages, setMessages] = useState<Message[]>([]);
+  const [messages, setMessages] = useState<UIMessage[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
@@ -33,6 +34,14 @@ export default function HomePage() {
   const [currentSessionImageUrl, setCurrentSessionImageUrl] = useState<string | null>(null);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // 会话列表
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [sessions, setSessions] = useState<UISession[]>(DUMMY_SESSIONS);
+  // 当前用户正在查看的会话ID
+  const [activeSessionId, setActiveSessionId] = useState<string>('s1');
+  // 创建新会话
+  const [sessionCounter, setSessionCounter] = useState<number>(DUMMY_SESSIONS.length + 1);
   
   //整合 Hook
   const { 
@@ -128,12 +137,39 @@ export default function HomePage() {
     }
   };
 
+  // 新建会话处理
+  const handleNewSession = useCallback(() => {
+    const newId = `temp-${sessionCounter}`;
+    const newSession: UISession = {
+      id: newId,
+      name: `新对话 ${sessionCounter}`, // 默认名称
+    };
+
+    // 将新会话添加到列表最前面
+    setSessions(prevSessions => [newSession, ...prevSessions]);
+    // 自动切换到新创建的会话
+    setActiveSessionId(newId);
+    // 增加计数器
+    setSessionCounter(prevCounter => prevCounter + 1);
+    // 模拟新建对话
+    console.log('--- 新建对话被点击，已创建会话 ID:', newId);
+  }, [sessionCounter]);
+
+  // 会话切换处理
+  const handleSessionChange = useCallback((id: string) => {
+    // 更新当前激活的会话 ID
+    setActiveSessionId(id);
+    //模拟
+    console.log(`切换到会话: ${id}`);
+  }, []);
+
 
   // 发送请求
   const handleSend = useCallback(async () => {
     const trimmedInput = input.trim();
     if (isLoading || isUploading) return;
 
+    console.log("authStatus:",authStatus);
     // 确保认证已完成
     if (authStatus.startsWith('Initializing') || authStatus.startsWith('❌')) {
       setMessages((prev) => [...prev, { text: " 认证会话正在初始化或已失败，请稍候再试。", sender: "ai" }]);
@@ -157,7 +193,7 @@ export default function HomePage() {
 
     // 若当前会话未上传过图片，拦截请求
     if (!effectiveImageUrl) {
-      const errorMsg: Message = {
+      const errorMsg: UIMessage = {
         text: "当前会话需要一张商品参考图，请先上传一张商品图片。",
         sender: "ai"
       };
@@ -166,7 +202,7 @@ export default function HomePage() {
     }
 
     // 立即显示用户消息
-    const userMessage: Message = { 
+    const userMessage: UIMessage = { 
       text: trimmedInput, 
       sender: "user",
       imageUrl: uploadedFile ? effectiveImageUrl : undefined
@@ -194,7 +230,7 @@ export default function HomePage() {
       });
       
       const result = await response.json();
-      let aiResponse: Message;
+      let aiResponse: UIMessage;
 
       if (result.success) {
         const data = result.data;
@@ -216,7 +252,7 @@ export default function HomePage() {
       setMessages((prev) => [...prev, aiResponse]);
     } catch (error) {
       console.error("API调用失败：", error);
-      const errorMsg: Message = {
+      const errorMsg: UIMessage = {
         text: "网络连接失败，请检查服务状态。",
         sender:"ai"
       }
@@ -234,196 +270,44 @@ export default function HomePage() {
     }
   };
 
-  // 拖拽区域提示文本
-  const dropZoneText = useMemo(() => {
-    if (isUploading) return `上传中... (${uploadProgress}%)`;
-    if (isDragging) return "松开即可上传文件...";
-    if (currentSessionImageUrl) return "当前会话图片已锁定，拖拽或点击可替换图片。";
-    return "拖拽图片至此，或点击上传按钮。";
-  }, [isUploading, uploadProgress, isDragging, currentSessionImageUrl]);
-
-
   return (
-    <div className="flex h-screen">
-      {/* 左侧侧边栏*/}
-      <aside className="w-72 bg-[#111] text-white flex flex-col border-r border-gray-700">
-        {/* 侧边栏内容*/}
-        <div className="p-4 font-bold text-xl bg-gradient-to-r from-[#ff004f] to-[#2d5bff] text-transparent bg-clip-text">
-          Chat 面板
-        </div>
-        <Separator className="bg-gray-700" />
-        <ScrollArea className="flex-1 p-3">
-          <div className="space-y-2">
-            {["会话 1", "会话 2", "会话 3"].map((item, i) => (
-              <button
-                key={i}
-                className="w-full text-left px-3 py-2 rounded-lg hover:bg-gray-800 flex items-center gap-2"
-              >
-                <MessageCircle size={18} />
-                {item}
-              </button>
-            ))}
-          </div>
-        </ScrollArea>
-        <Separator className="bg-gray-700" />
-        <div className="p-4 flex items-center gap-3">
-          <div className="w-10 h-10 rounded-full bg-gradient-to-r from-[#ff004f] to-[#2d5bff]" />
-          <div>
-            <p className="text-sm font-semibold">User</p>
-            <p className="text-xs text-gray-400">在线中</p>
-          </div>
-        </div>
-      </aside>
+    <ChatLayout 
+      sessions={sessions}
+      currentUserName="您的用户ID/昵称" // 实际应从认证状态获取
+      onSessionChange={handleSessionChange}
+      onNewSession={handleNewSession}
+      activeSessionId={activeSessionId}
+        >
+        {/* 聊天消息列表 */}
+        <ChatMessageList messages={messages} />
 
-      {/* 右侧聊天区 */}
-      <main className="flex-1 flex flex-col px-12">
-
-        {/* 聊天内容区域 */}
-        <ScrollArea className="flex-1 p-6 bg-white">
-          <div className="space-y-6 max-w-4xl mx-auto w-full">
-            {messages.map((msg, i) => (
-              <div
-                key={i}
-                className={`flex ${
-                  msg.sender === "user" ? "justify-end" : "justify-start"
-                }`}
-              >
-                <div
-                  className={`max-w-[80%] px-4 py-3 rounded-2xl shadow-md whitespace-pre-wrap break-words ${
-                    msg.sender === "user"
-                      ? "bg-gradient-to-r from-[#ff004f] to-[#2d5bff] text-white rounded-br-none" 
-                      : "bg-white text-gray-800 border border-gray-200 rounded-tl-none"
-                  }`}
-                >
-                  {/* 渲染图片(若存在) */}
-                  {msg.imageUrl && (
-                    <div className="mb-2">
-                      <img
-                        src={msg.imageUrl}
-                        alt="发送的图片"
-                        className="rounded-lg max-w-full h-auto object-cover max-h-64"
-                      />
-                    </div>
-                  )}
-                  {/* 渲染文字 */}
-                  <p className="text-sm">{msg.text}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </ScrollArea>
-
-        {/* 输入框区域和上传区域 */}
-        <div className="p-4 bg-white flex flex-col items-center gap-2">
-          <div 
-                className={`w-full max-w-4xl p-2 flex flex-col justify-center items-center rounded-xl transition-all duration-300 
-                            ${uploadedFile || currentSessionImageUrl ? 'h-auto border border-gray-200' : 'h-24 border-dashed border-2 cursor-pointer'}
-                            ${isDragging ? 'border-indigo-500 bg-indigo-50' : 'border-gray-300 bg-gray-50 hover:bg-gray-100'}
-                          `}
-                onClick={() => {
-                  if (!uploadedFile && !isUploading) fileInputRef.current?.click()
-                }}
-                onDragOver={handleDragOver}
-                onDragLeave={handleDragLeave}
-                onDrop={handleDrop}
-              >
-
-              {/* 文件上传/预览区域 */}
-              {(uploadedFile || currentSessionImageUrl) ? (
-                  <div className="flex items-center justify-between w-full p-2">
-                    <div className="flex items-center gap-3">
-                      <img 
-                          src={filePreviewUrl || currentSessionImageUrl || ''} 
-                          alt="Current Image" 
-                          className="h-16 w-16 object-cover rounded-md border"
-                      />
-                      <div>
-                        <p className="font-semibold text-sm">
-                          {uploadedFile ? uploadedFile.name : '当前会话图片'}
-                        </p>
-                        <p className={`text-xs ${currentSessionImageUrl ? 'text-green-600' : 'text-gray-500'}`}>
-                           {currentSessionImageUrl ? '已设置' : '待发送/替换'}
-                        </p>
-                      </div>
-                    </div>
-                    <Button 
-                        onClick={clearFile}
-                        variant="ghost"
-                        size="icon" 
-                        disabled={isUploading}
-                        className="rounded-full"
-                    >
-                        <X size={16} />
-                    </Button>
-                  </div>
-              ) : (
-                  <p className="text-gray-500 text-sm">{dropZoneText}</p>
-              )}
-              
-              {/* 错误和进度显示 */}
-              {(uploadError || isUploading) && (
-                  <div className="mt-1 text-sm">
-                      {uploadError && <p className="text-red-500">{uploadError}</p>}
-                      {isUploading && <p className="text-blue-500">上传进度: {uploadProgress}%</p>}
-                  </div>
-              )}
-          </div>
-          
-          {/* 输入框和按钮组 */}
-          <div className="flex w-full max-w-4xl gap-2">
+        {/* 输入和上传区域 */}
+        <ChatInputArea
+            // 状态
+            input={input}
+            isLoading={isLoading}
+            isUploading={isUploading}
+            uploadedFile={uploadedFile}
+            filePreviewUrl={filePreviewUrl}
+            currentSessionImageUrl={currentSessionImageUrl}
+            uploadProgress={uploadProgress}
+            uploadError={uploadError}
+            isDragging={isDragging}
+            authStatus={authStatus}
             
-            {/* 隐藏的文件输入框 */}
-            <input
-              type="file"
-              accept="image/*"
-              ref={fileInputRef}
-              onChange={handleFileChange}
-              className="hidden"
-            />
+            // Handlers
+            setInput={setInput}
+            handleSend={handleSend}
+            handleFileChange={handleFileChange}
+            handleKeyDown={handleKeyDown}
+            handleDragOver={handleDragOver}
+            handleDragLeave={handleDragLeave}
+            handleDrop={handleDrop}
+            clearFile={clearFile}
             
-            <Button
-              onClick={() => fileInputRef.current?.click()}
-              variant="outline"
-              size="icon"
-              disabled={isUploading || isLoading}
-              className="h-12 w-12 rounded-full border-gray-300 text-gray-600 hover:text-gray-800"
-              title="上传或更换图片"
-            >
-              <Upload size={20} />
-            </Button>
-            
-            <Input
-              placeholder={isLoading || isUploading ? "正在处理中，请稍候..." : "请输入您对素材的需求或指令..."}
-              disabled={isLoading || isUploading}
-              className="
-                flex-1 rounded-full h-12 text-base px-6
-                "
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={handleKeyDown}
-            />
-            
-            <Button
-              onClick={handleSend}
-              // 按钮禁用条件：正在加载中 OR 正在上传中 OR 既没输入内容又没有会话图
-              disabled={isLoading || isUploading || (!input.trim() && !currentSessionImageUrl && !uploadedFile)} 
-              className="
-                bg-gradient-to-r 
-                from-[#ff004f] to-[#2d5bff] 
-                text-white
-                h-12
-                w-12
-                p-0
-                rounded-full
-                transition-opacity
-                disabled:opacity-50
-                "
-            >
-              {(isLoading || isUploading) ? <Loader2 size={18} className="animate-spin" /> : <Send size={18} />}
-            </Button>
-          </div>
-        </div>
-      </main>
-    </div>
+            // Refs
+            fileInputRef={fileInputRef}
+        />
+    </ChatLayout>
   );
 }
