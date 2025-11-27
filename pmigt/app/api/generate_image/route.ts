@@ -15,22 +15,30 @@ export async function POST(req: Request) {
     const { productImageUrl, styleImageUrl,userPrompt} = await req.json();
 
     const imageGenerationPrompt = `
-   你是一个专业的电商图片生成师，请你参考图2的设计，给图一中的商品设计一张电商主图，要求如下：
-   1.在图片的四周中添加一个文字贴纸内容为根据图一(商品)的内容生成的主图氛围(约10个字),使用简体中文
-   2."${userPrompt}"
+    你是一名电商师。
+   【核心任务】：保留【图1】中的主体，为其生成背景。
+   【风格参考】：借鉴【图2】的布局，颜色和光影，但绝对不要画出图2中的物体。
+   【细节要求】：
+   1. 主体必须是图一中的商品，不要改变其形状。
+   2. 在图片周围添加简体中文氛围贴纸（约10字）。
+   3. 用户描述：${userPrompt}
     `;
+
+    console.log("--------------------------------");
+    console.log("【调试】最终发送给 AI 的 Prompt:");
+    console.log(imageGenerationPrompt);
+    console.log("--------------------------------");
 
     const imageResponse = await client.images.generate({
       model: process.env.VOLC_IMAGE_ENDPOINT_ID!, 
       prompt: imageGenerationPrompt,
       size: "1024x1024",
-      // @ts-expect-error: ignore type check
-      extra_body: {
-        image: [productImageUrl, styleImageUrl],
-        return_url: true,
-        sequential_image_generation: "disabled",
-      }
-    });
+      response_format: "url",
+      image: [productImageUrl, styleImageUrl],
+      watermark: true,
+      sequential_image_generation: "disabled",
+    //eslint-disable-next-line @typescript-eslint/no-explicit-any
+    }as any);
 
     const generatedImageUrl = imageResponse.data?.[0]?.url;
 

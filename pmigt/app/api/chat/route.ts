@@ -1,27 +1,37 @@
 import { OpenAI } from 'openai';
 import { NextResponse } from 'next/server';
 import { AIContent } from '@/src/types';
-import { createClient } from '@supabase/supabase-js';
+import { createClient } from '@/utils/supabase/server'; 
 
 const client = new OpenAI({
   apiKey: process.env.VOLC_API_KEY,
   baseURL: 'https://ark.cn-beijing.volces.com/api/v3',
 });
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
 
 export const runtime = 'edge';
 
 export async function POST(req: Request) {
   try {
-    const { imageUrl, userPrompt, userId, sessionId: clientSessionId } = await req.json();
+    // 2. 初始化 Supabase 客户端 (带 Cookie 的)
+    const supabase = await createClient();
 
-    if (!userId) {
-       return NextResponse.json({ success: false, error: "未登录用户" }, { status: 401 });
+    // 3. 从 Cookie 获取真实用户信息 
+    // 这比 req.json().userId 可靠
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+
+    // 如果没拿到 user，直接拦截
+    if (authError || !user) {
+      return NextResponse.json({ success: false, error: "请先登录" }, { status: 401 });
     }
+    
+    // 使用这个真实的 ID 替换之前的 userId 参数
+    const userId = user.id;
+
+    console.log("准备写入数据库的 UserID:", userId); 
+
+    // 4. 解析 Body：去掉了 userId 的解构，因为上面已经拿到了
+    const { imageUrl, userPrompt, sessionId: clientSessionId } = await req.json();
 
     let currentSessionId = clientSessionId;
 
@@ -30,8 +40,8 @@ export async function POST(req: Request) {
       const { data: session, error: sessionError } = await supabase
         .from('sessions')
         .insert({
-          user_id: userId,
-          name: userPrompt.slice(0, 10) || "新商品素材", // 默认取前10个字当标题
+          user_id: userId, // 存入数据库的是这个“真身”ID
+          name: userPrompt.slice(0, 10) || "新商品素材",
         })
         .select()
         .single();
@@ -40,7 +50,8 @@ export async function POST(req: Request) {
       currentSessionId = session.id;
     }
 
-     await supabase.from('messages').insert({
+    // 存入用户消息
+    await supabase.from('messages').insert({
       session_id: currentSessionId,
       user_id: userId,
       role: 'user',
@@ -49,7 +60,6 @@ export async function POST(req: Request) {
     });
 
     const targetModel = process.env.VOLC_ENDPOINT_ID!; 
-
     const systemPrompt = `
     你是一位资深电商运营专家。请根据用户提供的商品信息（图片或文字描述），生成结构化素材。
     
@@ -59,11 +69,7 @@ export async function POST(req: Request) {
       "selling_points": ["卖点1", "卖点2", "卖点3"], 
       "atmosphere": "氛围文案",
     }
-
-    重要规则：
-    1. selling_points 必须是纯字符串数组，严禁包含 "1."、"2." 等序号！
-    2. 卖点之间必须分开，不要合并成一句话。
-    3. 不要输出 markdown，只输出纯 JSON。
+    不要使用markdown。
     `;
 
     const response = await client.chat.completions.create({
@@ -82,67 +88,56 @@ export async function POST(req: Request) {
     });
 
     const aiRawText = response.choices[0].message.content;
-    
     let parsedData: Partial<AIContent> & Record<string,unknown> = {};
     
     try {
       const cleanJson = aiRawText?.replace(/```json|```/g, '').trim();
       parsedData = JSON.parse(cleanJson || '{}');
     } catch { 
-      console.log("JSON 解析失败，尝试直接处理文本");
+      console.log("JSON 解析失败");
     }
 
-    // 数据清洗与标准化
+    // 数据清洗
     let cleanSellingPoints: string[] = [];
     const rawPoints = parsedData.selling_points;
 
-    // 无论 AI 返回的是字符串还是数组，统一转成 string[]
     if (Array.isArray(rawPoints)) {
-      cleanSellingPoints = rawPoints
-        .map(p => String(p))
-        .flatMap(p => p.split(/[\n\r]+|(\d+\.\s+)/))
-        .map(p => p.replace(/^\d+\.|^[-*]\s+/, '').trim())
-        .filter(p => p && p.length > 2);
+      cleanSellingPoints = rawPoints.map(String);
     } else if (typeof rawPoints === 'string') {
       cleanSellingPoints = [rawPoints];
     } else {
-      // 如果完全没提取到，给个默认值
       cleanSellingPoints = ["卖点提取中..."];
     }
 
-    // 组装最终返回数据，严格符合 AIContent 结构
     const finalData: AIContent = {
       title: parsedData.title || "生成标题失败",
       selling_points: cleanSellingPoints,
       atmosphere: parsedData.atmosphere || "氛围感生成中...",
     };
 
+    // 5. 存入 AI 消息：同样使用 userId
     await supabase.from('messages').insert({
-          session_id: currentSessionId,
-          user_id: userId,
-          role: 'assistant',
-          content: JSON.stringify(finalData), // 存最终的结构化数据
-        });
+      session_id: currentSessionId,
+      user_id: userId,
+      role: 'assistant',
+      content: JSON.stringify(finalData),
+    });
 
     return NextResponse.json({
       success: true,
       data: finalData,
-      sessionId:currentSessionId
+      sessionId: currentSessionId 
     });
 
   } catch (error: unknown) { 
     console.error("API 调用出错:", error);
-    
-    let errorMessage = "未知错误";
+     let errorMessage = "未知错误";
     if (error instanceof Error) {
         errorMessage = error.message;
     } else if (typeof error === 'string') {
         errorMessage = error;
     }
     
-    return NextResponse.json({
-      success: false,
-      error: errorMessage
-    }, { status: 500 });
+    return NextResponse.json({ success: false, error: errorMessage }, { status: 500 });
   }
 }
