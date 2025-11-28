@@ -259,7 +259,7 @@ export default function HomePage() {
     const userMessage: UIMessage = { 
       text: trimmedInput, 
       sender: "user",
-      imageUrl: uploadedFile ? effectiveImageUrl : undefined
+      imageUrl: uploadedFile ? effectiveImageUrl : undefined,
     };
     //AI占位消息，用于加载特效，生成完后删除 
     const aiPlaceholder: UIMessage = {

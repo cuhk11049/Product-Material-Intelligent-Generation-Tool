@@ -31,7 +31,7 @@ export const UserMessageCard: React.FC<UserMessageCardProps> = ({ message }) => 
                     inline-block max-w-[75%]
                     px-4 py-3 rounded-2xl shadow-md
                     whitespace-pre-wrap break-words
-                    bg-gradient-to-r from-[#f73c3ca9] to-[#4a3bf29b]
+                    bg-gradient-to-r from-[#f73c3ca9] to-[#4a3bf2]
                     text-white text-sm rounded-br-none
                 "
             >

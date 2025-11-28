@@ -105,7 +105,7 @@ export const ChatInputArea: React.FC<ChatInputAreaProps> = (props) => {
                 {(uploadError || isUploading) && (
                     <div className="mt-1 text-sm">
                         {uploadError && <p className="text-red-500">{uploadError}</p>}
-                        {isUploading && <p className="text-blue-500">上传进度: {uploadProgress}%</p>}
+                        {isUploading && <p className="text-blue-500">图片上传中...</p>}
                     </div>
                 )}
             </div>

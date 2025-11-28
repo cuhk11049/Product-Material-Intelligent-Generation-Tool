@@ -53,7 +53,7 @@ export const AIMessageCard: React.FC<AIMessageCardProps> = ({ message}) => {
         <div className="flex gap-3 items-start">
             {/* 头像骨架 */}
             <div className="animate-pulse">
-                <AiAvatar />
+                    <AiAvatar loading={true} />
             </div>
 
             {/* 气泡骨架 */}
