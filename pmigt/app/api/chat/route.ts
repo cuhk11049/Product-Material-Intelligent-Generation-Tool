@@ -35,6 +35,21 @@ export async function POST(req: Request) {
 
     let currentSessionId = clientSessionId;
 
+     let finalImageUrl = imageUrl;
+    if (imageUrl && imageUrl.startsWith('http')) {
+      try {
+        console.log("正在下载图片并转换为 Base64...", imageUrl);
+        const imgRes = await fetch(imageUrl);
+        if (!imgRes.ok) throw new Error("图片下载失败");
+        const arrayBuffer = await imgRes.arrayBuffer();
+        const base64 = Buffer.from(arrayBuffer).toString('base64');
+        const contentType = imgRes.headers.get('content-type') || 'image/jpeg';
+        finalImageUrl = `data:${contentType};base64,${base64}`;
+      } catch {
+        console.error("图片转 Base64 失败，降级使用原链接");
+      }
+    }
+
     // 如果前端没传 sessionId，说明是“新建会话”
     if (!currentSessionId) {
       const { data: session, error: sessionError } = await supabase
@@ -61,15 +76,36 @@ export async function POST(req: Request) {
 
     const targetModel = process.env.VOLC_ENDPOINT_ID!; 
     const systemPrompt = `
-    你是一位资深电商运营专家。请根据用户提供的商品信息（图片或文字描述），生成结构化素材。
+    你是一位拥有10年经验的资深电商运营专家，擅长爆款文案策划、SEO关键词优化及用户消费心理学。
+
+    请根据用户提供的【商品信息】，深度分析产品属性、目标人群痛点及使用场景，生成一份高转化率的结构化营销素材。
     
-    严格遵守 JSON 格式返回：
-    {
-      "title": "商品标题(15-30字)",
-      "selling_points": ["卖点1", "卖点2", "卖点3"], 
-      "atmosphere": "氛围文案",
-    }
-    不要使用markdown。
+    限制：
+    1. 输出格式：必须且仅返回一个合法的 JSON 字符串。
+    2. 禁止在 JSON 前后添加任何解释性文字或换行符。
+    3. 确保 JSON 格式校验通过，不要有未闭合的引号或非法字符。
+    4. 禁止使用markdown。
+    5. 语言要求：简体中文，语气专业且具有感染力。
+
+    
+    字段定义：
+    请严格按照以下字段逻辑生成内容：
+    1. title (商品标题):
+      - 长度：10-20个中文字符（含标点）。
+      - 要求：必须包含核心关键词，采用“人群/场景 + 核心卖点 + 产品名 + 促销/修饰词”的结构，具有高点击率诱惑力。
+
+    2. selling_points (核心卖点):
+      - 数量：固定生成 3 个精选卖点。
+      - 结构：采用“FAB法则”（Feature属性 + Advantage优势 + Benefit利益）。
+      - 要求：每个卖点不超过 10个字，直击用户痛点。
+
+    3. atmosphere (氛围文案):
+      - 长度：10-20个字。
+      - 要求：构建一个具体的使用场景或感官体验，具有画面感，激发用户的情感共鸣，而非单纯堆砌形容词。
+
+    # Response Example
+    {"title":"夏季薄款冰丝阔腿裤女高腰显瘦垂感拖地裤","selling_points":["进口冰丝面料，自带降温体感","高腰立体剪裁，视觉拉长腿部线条","垂顺不易起皱，久坐也不尴尬"],"atmosphere":"午后的阳光洒在街道，微风拂过，裤脚轻盈摆动。无论是职场通勤还是周末逛街，它都能给你带来如若无物的清凉体验，每一步都走出自信与优雅。"}
+
     `;
 
     const response = await client.chat.completions.create({
@@ -79,7 +115,7 @@ export async function POST(req: Request) {
         {
           role: 'user',
           content: [
-            { type: 'image_url', image_url: { url: imageUrl } },
+            { type: 'image_url', image_url: { url: finalImageUrl } },
             { type: 'text', text: userPrompt || "生成电商素材" },
           ],
         },
