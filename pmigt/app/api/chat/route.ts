@@ -1,7 +1,7 @@
 import { OpenAI } from 'openai';
 import { NextResponse } from 'next/server';
-import { AIContent } from '@/src/types';
 import { createClient } from '@/utils/supabase/server'; 
+
 
 const client = new OpenAI({
   apiKey: process.env.VOLC_API_KEY,
@@ -108,7 +108,6 @@ export async function POST(req: Request) {
     {"title":"夏季薄款冰丝阔腿裤女高腰显瘦垂感拖地裤","selling_points":["进口冰丝面料，自带降温体感","高腰立体剪裁，视觉拉长腿部线条","垂顺不易起皱，久坐也不尴尬"],"atmosphere":"午后的阳光洒在街道，微风拂过，裤脚轻盈摆动。无论是职场通勤还是周末逛街，它都能给你带来如若无物的清凉体验，每一步都走出自信与优雅。"}
 
     `;
-
     const response = await client.chat.completions.create({
       model: targetModel,
       messages: [
@@ -122,49 +121,67 @@ export async function POST(req: Request) {
         },
       ],
       temperature: 0.5,
+      stream: true, // 开启流
     });
 
-    const aiRawText = response.choices[0].message.content;
-    let parsedData: Partial<AIContent> & Record<string,unknown> = {};
-    
-    try {
-      const cleanJson = aiRawText?.replace(/```json|```/g, '').trim();
-      parsedData = JSON.parse(cleanJson || '{}');
-    } catch { 
-      console.log("JSON 解析失败");
-    }
+    const stream = new ReadableStream({
+      async start(controller) {
+        const encoder = new TextEncoder();
+        let accumulatedContent = ""; 
 
-    // 数据清洗
-    let cleanSellingPoints: string[] = [];
-    const rawPoints = parsedData.selling_points;
+        try {
+          for await (const chunk of response) {
+            // 获取当前的片段（一个字或几个字）
+            const content = chunk.choices[0]?.delta?.content || "";
+            
+            if (content) {
+              controller.enqueue(encoder.encode(content));
+              accumulatedContent += content;
+            }
+          }
+        } catch (err) {
+          console.error("Stream error:", err);
+          controller.error(err);
+        } finally {
+          controller.close(); 
+          console.log("流式输出完毕，开始入库...");
+          try {
+            // 简单的 JSON 清洗逻辑
+            const cleanJson = accumulatedContent.replace(/```json|```/g, '').trim();
+            let parsedData = {}; 
+            try {
+               parsedData = JSON.parse(cleanJson);
+            } catch {
+               console.log("入库时 JSON 解析失败，将存储原始文本");
+            }
+            
+            const finalContentToSave = JSON.stringify(parsedData).length > 2 
+                ? JSON.stringify(parsedData) 
+                : accumulatedContent;
 
-    if (Array.isArray(rawPoints)) {
-      cleanSellingPoints = rawPoints.map(String);
-    } else if (typeof rawPoints === 'string') {
-      cleanSellingPoints = [rawPoints];
-    } else {
-      cleanSellingPoints = ["卖点提取中..."];
-    }
-
-    const finalData: AIContent = {
-      title: parsedData.title || "生成标题失败",
-      selling_points: cleanSellingPoints,
-      atmosphere: parsedData.atmosphere || "氛围感生成中...",
-    };
-
-    // 存入 AI 消息：同样使用 userId
-    await supabase.from('messages').insert({
-      session_id: currentSessionId,
-      user_id: userId,
-      role: 'assistant',
-      content: JSON.stringify(finalData),
+            await supabase.from('messages').insert({
+              session_id: currentSessionId,
+              user_id: userId,
+              role: 'assistant',
+              content: finalContentToSave, 
+            });
+            console.log("数据库入库完成 ✅");
+          } catch (dbError) {
+             console.error("数据库存入失败:", dbError);
+          }
+        }
+      },
     });
 
-    return NextResponse.json({
-      success: true,
-      data: finalData,
-      sessionId: currentSessionId 
+    // 9. 返回 Response 流对象
+    // 把 SessionID 放在 Header 里，前端可以从 headers.get('x-session-id') 拿到
+    return new Response(stream, {
+      headers: {
+        'Content-Type': 'text/plain; charset=utf-8',
+        'X-Session-Id': currentSessionId, 
+      },
     });
+
 
   } catch (error: unknown) { 
     console.error("API 调用出错:", error);
