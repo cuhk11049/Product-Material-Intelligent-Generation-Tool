@@ -36,20 +36,21 @@ export async function POST(req: Request) {
 
     let currentSessionId = sessionId;
 
+    // eslint-disable-next-line prefer-const
     let finalImageUrl = imageUrl;
-    if (imageUrl && imageUrl.startsWith('http')) {
-      try {
-        console.log("正在下载图片并转换为 Base64...", imageUrl);
-        const imgRes = await fetch(imageUrl);
-        if (!imgRes.ok) throw new Error("图片下载失败");
-        const arrayBuffer = await imgRes.arrayBuffer();
-        const base64 = Buffer.from(arrayBuffer).toString('base64');
-        const contentType = imgRes.headers.get('content-type') || 'image/jpeg';
-        finalImageUrl = `data:${contentType};base64,${base64}`;
-      } catch {
-        console.error("图片转 Base64 失败，降级使用原链接");
-      }
-    }
+    // if (imageUrl && imageUrl.startsWith('http')) {
+    //   try {
+    //     console.log("正在下载图片并转换为 Base64...", imageUrl);
+    //     const imgRes = await fetch(imageUrl);
+    //     if (!imgRes.ok) throw new Error("图片下载失败");
+    //     const arrayBuffer = await imgRes.arrayBuffer();
+    //     const base64 = Buffer.from(arrayBuffer).toString('base64');
+    //     const contentType = imgRes.headers.get('content-type') || 'image/jpeg';
+    //     finalImageUrl = `data:${contentType};base64,${base64}`;
+    //   } catch {
+    //     console.error("图片转 Base64 失败，降级使用原链接");
+    //   }
+    // }
 
     // 如果前端没传 sessionId，说明是“新建会话”
     if (!currentSessionId) {
@@ -137,6 +138,7 @@ export async function POST(req: Request) {
             if (content) {
               controller.enqueue(encoder.encode(content));
               accumulatedContent += content;
+              console.log("后端收到 chunk", JSON.stringify(content));
             }
           }
         } catch (err) {
