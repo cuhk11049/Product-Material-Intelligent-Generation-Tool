@@ -10,7 +10,7 @@ import { AIContent, Message, UIMessage, UISession} from '@/src/types/index'
 
 import { toast } from "sonner"
 
-import { formatAIMarketingText, formatPartialAIMarketingText } from '@/utils/messageFormatter';
+import { formatAIMarketingText } from '@/utils/messageFormatter';
 
 // 导入 Hook 和常量
 import { useFileUploader } from "@/hooks/useFileUploader"; 
@@ -41,7 +41,16 @@ export default function HomePage() {
 
   // AI占位消息，用于加载动画，后续删除
   const placeholderIndexRef = useRef<number | null>(null);
-  
+
+  // 用于重新生成
+  // 用于保存最后一条用户消息
+  const [lastUserMessage, setLastUserMessage] = useState<{
+    id: string;
+    content: string;
+  } | null>(null);
+  // 保存最后一条AI消息的ID，用于重新生成时删除
+  const [lastAIMessageId, setLastAIMessageId] = useState<string | null>(null);
+      
   //整合 Hook
   const { 
     isUploading, 
@@ -100,20 +109,62 @@ export default function HomePage() {
 
   //监听 activeSessionId 变化并加载历史消息
   useEffect(() => {
-      if (activeSessionId) {
+      // 跳过新会话的重新加载
+      if (activeSessionId&&messages.length===0) {
           // 确保 content 已经清空，避免闪烁
           const loadHistory = async () => {
-              //待设置一个临时的 messageLoading 状态来显示加载动画
+              //设置一个临时的 messageLoading 状态来显示加载动画
               setIsHistoryLoading(true);
 
               const history = await loadSessionMessages(activeSessionId);
               
-            if (history) {
+              if (history) {
                 const dbMessages = history as Message[];
+                
+                let sessionImage: string | null = null;
+                let userMsg: Message | null = null;
+                let aiMsgId: string | null = null;
+
+                // 从后往前遍历消息，找到最后一个AI消息ID和用户消息
+                for (let i = dbMessages.length - 1; i >= 0; i--){
+                  const message = dbMessages[i];
+                  // 提取最后一条AI消息ID
+                  if (message.role === 'assistant' && !aiMsgId) {
+                    aiMsgId = message.id;
+                  }
+                  // 提取最后一条用户消息
+                  if (message.role === 'user' && !userMsg) {
+                    userMsg = message;
+                  }
+                  // 提取会话参考图
+                  if (message.role === 'user' && message.image_url) {
+                    sessionImage = message.image_url;
+                  }
+
+                  // 若找到所需的内容则中断循环
+                  if (aiMsgId && userMsg && sessionImage) {
+                    break;
+                  }
+                }
+
+                // 存储需要的消息
+                setCurrentSessionImageUrl(sessionImage);
+                if (userMsg) {
+                  setLastUserMessage({
+                    id: userMsg.id,
+                    content:userMsg.content,
+                  })
+                  console.log("最后一条用户消息：",userMsg.content,"当前会话参考图：",sessionImage,"需要删除的AI消息ID：",aiMsgId)
+                } else {
+                  setLastUserMessage(null);
+                }
+                setLastAIMessageId(aiMsgId);
+                
                 //格式转换 
                 const uiMessages: UIMessage[] = dbMessages.map(dbMessage => {
-                    let messageText = dbMessage.content;
-                    if (dbMessage.role === 'assistant') {
+                  let messageText = dbMessage.content;
+                  // 判断是否为AI消息且为纯文本模式
+                    if (dbMessage.role === 'assistant'&& !dbMessage.image_url && !dbMessage.video_url) {
                         try {
                             // 尝试解析 JSON 字符串
                             const data = JSON.parse(dbMessage.content);
@@ -132,17 +183,22 @@ export default function HomePage() {
                             text: messageText, // 使用格式化后的文本
                             sender: dbMessage.role === 'assistant' ? 'ai' : dbMessage.role as 'user' | 'ai',
                             imageUrl: dbMessage.image_url || undefined,
+                            videoUrl: dbMessage.video_url || undefined,
                             loading: false,
                         };
                     })
                 setMessages(uiMessages);
-              }
+                }
+              const MIN_DELAY_MS = 500; // 设定一个最小延迟时间
+
+              // 使用 Promise 封装 setTimeout 来等待
+              await new Promise(resolve => setTimeout(resolve, MIN_DELAY_MS));
               setIsHistoryLoading(false);
           };
           loadHistory();
       }
       // 只有在 activeSessionId 改变时运行
-  }, [activeSessionId, loadSessionMessages, setMessages]);
+  }, [activeSessionId, loadSessionMessages, setMessages,messages.length,setLastAIMessageId,setLastUserMessage,setCurrentSessionImageUrl]);
 
   // 用于实时更新 UI 中占位消息的函数
   const updatePlaceholderMessageContent = useCallback((newContent: string, isFinal: boolean = false, finalImageUrl?: string) => {
@@ -221,202 +277,33 @@ export default function HomePage() {
 
   // 处理图片生成模式切换
   const toggleImageGenerationMode = useCallback(() => {
-    setIsImageGenerationMode(prev => !prev);
+    setIsImageGenerationMode(prev => {
+        const newState = !prev;
+        if (newState) {
+            // 开启图片模式时，必须关闭视频模式
+            setIsVideoGenerationMode(false); 
+        }
+        return newState;
+    });
   }, []);
 
   // 处理视频生成模式切换
   const toggleVideoGenerationMode = useCallback(() => {
-    setIsVideoGenerationMode(prev => !prev);
+    setIsVideoGenerationMode(prev => {
+        const newState = !prev;
+        if (newState) {
+            // 开启视频模式时，必须关闭图片模式
+            setIsImageGenerationMode(false); 
+        }
+        return newState;
+    });
   }, []);
 
-  // 调用图片生成API
-  const handleGenerateImage = useCallback(async(
-    productImageUrl: string,
-    styleImageUrl: string,
-    userPrompt:string
-  ): Promise<string | null> => {
-    try {
-      const response = await fetch('/api/generate_image', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          productImageUrl,
-          styleImageUrl,
-          userPrompt,
-        })
-      });
 
-      if (!response.ok) {
-        throw new Error(`HTTP错误：${response.status}`);
-      }
-
-      const result = await response.json();
-
-      if (result.success) {
-        return result.imageUrl;
-      } else {
-        const errorMessage: string = result.error || "未知生成错误";
-        toast.error("图片生成失败", {
-          description:errorMessage
-        })
-        return null;
-      }
-    } catch (error) {
-      console.error("调用图片生成接口时发生网络或解析错误：", error);
-      toast.error("网络连接失败", {
-        description:"无法连接到图片生成服务"
-      })
-      return null;
-    }
-  },[])
-
-  // // 发送对话请求
-  // const handleSend = useCallback(async () => {
-  //   const trimmedInput = input.trim();
-  //   if (isLoading || isUploading) return;
-    
-  //   //用局部变量effectiveImageUrl保存当前会话最新商品图
-  //   let effectiveImageUrl = currentSessionImageUrl;
-
-  //   // 确定最终发送的图片 URL (优先级：新上传文件 -> 会话图 )
-  //   // 如果有新文件，则先上传，并获取 URL
-  //   if (uploadedFile) {
-  //     const newUrl = await uploadFileToSupabase(uploadedFile);
-  //     if (!newUrl) {
-  //       toast.error("上传失败", {
-  //           description: "图片上传失败，请重试。",
-  //       });
-  //       return;
-  //     } // 上传失败，终止发送
-  //     effectiveImageUrl = newUrl;//更新图片
-  //     setCurrentSessionImageUrl(newUrl);//更新全局会话状态
-  //   }
-
-  //   // 若当前会话未上传过图片，拦截请求
-  //   if (!effectiveImageUrl) {
-  //     toast.warning("缺少素材", {
-  //         description: "当前会话需要一张商品参考图，请先上传一张商品图片。",
-  //     });
-  //     return;
-  //   }
-
-  //   // 立即显示用户消息
-  //   const userMessage: UIMessage = { 
-  //     text: trimmedInput, 
-  //     sender: "user",
-  //     imageUrl: uploadedFile ? effectiveImageUrl : undefined,
-  //   };
-  //   //AI占位消息，用于加载特效，生成完后删除 
-  //   const aiPlaceholder: UIMessage = {
-  //       sender: 'ai',
-  //       loading:true,//启动加载动画
-  //   };
-    
-  //   // 将用户消息和 AI 占位消息一起推入列表，记录占位的下标
-  //   setMessages(prev => {
-  //     const newList = [...prev, userMessage, aiPlaceholder];
-  //     placeholderIndexRef.current = newList.length - 1; 
-  //     return newList;
-  //   });
-
-  //   // 启动加载状态并更新图片会话状态
-  //   setIsLoading(true);
-  //   setInput("");
-  //   clearFile(); // 清除本地文件预览状态
-
-
-  //   try {
-  //     // 调用后端 API，发送历史和图片 URL
-  //     const response = await fetch('/api/chat', {
-  //       method: 'POST',
-  //       headers: { 'Content-Type': 'application/json' },
-  //       body: JSON.stringify({
-  //         imageUrl: effectiveImageUrl, 
-  //         userPrompt: trimmedInput,
-  //         userId: userId,
-  //         sessionId: activeSessionId,
-  //         credentials: 'include', 
-  //         // // 发送历史消息 (用于多轮上下文)
-  //         // history: messagesRef.current.map(msg => ({ sender: msg.sender, text: msg.text }))
-  //       }),
-  //     });
-      
-  //     const result = await response.json();
-
-  //     if (result.success) {
-  //       const data = result.data;
-  //       const responseText = formatAIMarketingText(data);
-
-  //       const aiFinalMessage: UIMessage = {
-  //         sender: "ai",
-  //         text: responseText,
-  //         imageUrl: undefined
-  //       };
-        
-  //       // 若图片生成模式被激活
-  //       if (isImageGenerationMode) {
-  //         const styleImageUrl = effectiveImageUrl;
-  //         const generatedImageUrl = await handleGenerateImage(
-  //           effectiveImageUrl,
-  //           styleImageUrl,
-  //           trimmedInput
-  //         )
-  //         console.log("effectiveImageUrl:",effectiveImageUrl,)
-  //         if (generatedImageUrl) {
-  //           aiFinalMessage.imageUrl = generatedImageUrl;
-  //         }
-  //       } 
-
-  //       // 删除 AI 占位消息并追加真正消息
-  //       setMessages(prev => {
-  //         const newList = [...prev];
-  //         if (placeholderIndexRef.current !== null) {
-  //           newList.splice(placeholderIndexRef.current, 1);
-  //         }
-  //         newList.push(aiFinalMessage);
-  //         return newList;
-  //       });
-
-  //       // 若为新会话，则把后端返回的sessionId更新
-  //       if (result.sessionId && !activeSessionId) {
-  //         // 构造新的会话对象
-  //         const newSession: UISession = {
-  //             id: result.sessionId,
-  //             name: trimmedInput.slice(0, 10) || "新会话",
-  //         };
-
-  //         // 使用 Hook 的 addSession 函数来更新会话列表和激活状态
-  //         // addSession 会同时更新 sessions 列表，并设置 activeSessionId
-  //         addSession(newSession);
-  //       }
-  //     } else {
-  //         toast.error("服务错误", {
-  //           description: result.error || "无法获取生成结果。",
-  //         });
-  //     }
-  //   } catch (error) {
-  //     console.error("API调用失败：", error);
-  //     toast.error("文案生成失败", {
-  //         description:"请稍后再试"
-  //       })
-  //       return;
-  //   } finally {
-  //     setIsLoading(false);
-  //   }
-  // }, [input, isUploading, uploadedFile, currentSessionImageUrl, clearFile, uploadFileToSupabase, messages]); 
-  
-  const generateTempId = (): string => {
-    // 确保浏览器支持，如果不支持，则使用 Date.now() 作为 fallback
-    if (typeof crypto !== 'undefined' && crypto.randomUUID) {
-        return crypto.randomUUID();
-    }
-    // 简易 fallback ID
-    return `temp-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
-};
-
-  const handleSend = useCallback(async () => {
+  // 通用发送请求
+  const handleSend = useCallback(async (isRegenerate:boolean=false,deleteMessageId?:string) => {
     const trimmedInput = input.trim();
-    if (isLoading || isUploading) return;
+    if (isLoading || isUploading || isHistoryLoading) return;
     
     let effectiveImageUrl = currentSessionImageUrl;
     let isNewFileUploaded = false; // 用于判断是否需要将图片 URL 存入用户消息
@@ -447,15 +334,16 @@ export default function HomePage() {
       imageUrl: isNewFileUploaded ? effectiveImageUrl : undefined,
     };
 
-    const tempMessageId = generateTempId();
     // AI占位消息，用于加载特效，流式输出时会实时替换文本
     const aiPlaceholder: UIMessage = {
-        id:tempMessageId,
         sender: 'ai',
         loading: true,
         text: '...', 
+        isImageTask: isImageGenerationMode,
+        isVideoTask: isVideoGenerationMode,
     };
     
+    // 及时展示用户消息和AI占位消息
     setMessages(prev => {
       const newList = [...prev, userMessage, aiPlaceholder];
       placeholderIndexRef.current = newList.length - 1; 
@@ -466,118 +354,84 @@ export default function HomePage() {
     setInput("");
     clearFile(); // 清除本地文件预览状态
 
+    // 根据不同模式调用不同API
+    let apiEndpoint: string;
+    if (isImageGenerationMode) {
+        apiEndpoint = '/api/generate_image';
+    } else if (isVideoGenerationMode) {
+        apiEndpoint = '/api/generate_video';
+    } else {
+        apiEndpoint = '/api/chat';
+    }
+
+    // 构造统一请求体
+    const bodyData: Record<string, unknown> = {
+        contextImageUrl: effectiveImageUrl,
+        userPrompt: trimmedInput,
+        userId: userId,
+        sessionId: activeSessionId,
+        saveImageUrl: isNewFileUploaded ? effectiveImageUrl : undefined, 
+        isRegenerate: isRegenerate,
+        deleteMessageId: deleteMessageId, 
+    };
+
+    if (isImageGenerationMode) {
+        bodyData.styleImageUrl = "https://ifrctixzjfnynncamthq.supabase.co/storage/v1/object/public/images/68fde908-0686-4b14-a49a-82014dce13a4/cef0470bbe57eb8159bfc3bd6e780052.jpg";
+    }
+
+    let finalResponseText = '';
+    let generatedMediaUrl: string | undefined = undefined;
+
     try {
-      // 调用 API 并处理流
-      const response = await fetch('/api/chat', {
+      const response = await fetch(apiEndpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          imageUrl: effectiveImageUrl, 
-          userPrompt: trimmedInput,
-          userId: userId,
-          sessionId: activeSessionId,
-        }),
+        body: JSON.stringify(bodyData),
       });
-      
-      if (!response.ok || !response.body) {
+      console.log("请求聊天:", response);
+      const result = await response.json();
+      console.log("AI返回内容:", result);
+      if (!response.ok) {
         throw new Error(`API request failed: ${response.status} ${response.statusText}`);
       }
 
-      // 读取 Header，获取新的 Session ID
-      const newSessionId = response.headers.get('X-Session-Id');
-      
-      // 流式处理逻辑
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
-      let accumulatedContent = ''; // 累积完整输出
-
-      while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-
-          const chunk = decoder.decode(value, { stream: true });
-          console.log('🔹 前端收到 chunk', JSON.stringify(chunk));
-          accumulatedContent += chunk;
-          
-          // 尝试对当前累积的内容进行解析和格式化
-          let displayContent = accumulatedContent;
-          
-          try {
-              // 移除 JSON 标记并尝试解析
-              const cleanJson = accumulatedContent.replace(/```json|```/g, '').trim();
-              const partialData: AIContent = JSON.parse(cleanJson);
-              
-              // 如果解析成功（即使只是部分数据），则用格式化框架展示
-              // 我们需要一个新的 formatPartialAIMarketingText 函数
-              displayContent = formatPartialAIMarketingText(partialData);
-              
-          // eslint-disable-next-line @typescript-eslint/no-unused-vars
-          } catch (e) {
-              // 解析失败时，保留原始 JSON 文本作为 fallback (如果需要调试)
-              displayContent = accumulatedContent;
-          }
-
-          // 实时更新 UI 文本内容
-          updatePlaceholderMessageContent(displayContent, false); 
-          
-          await new Promise(resolve => setTimeout(resolve, 40));
-      }
-      
-      // 6. 流结束后的处理：JSON 解析和最终状态更新
-      const cleanJson = accumulatedContent.replace(/```json|```/g, '').trim();
-      let finalParsedData: AIContent | null;
-      
-      try {
-          finalParsedData = JSON.parse(cleanJson);
-      } catch {
-          console.error("流式输出 JSON 解析失败，保留原始文本。");
-          finalParsedData = null;
-      }
-
-      let finalResponseText = accumulatedContent;
-      let aiFinalImage: string | undefined = undefined;
-      
-      // 格式化文本和图片生成处理 (如果解析成功)
-      if (finalParsedData && typeof finalParsedData === 'object') {
+      // 解析结果
+      if (isImageGenerationMode) {
+          // 图片模式：返回生成的图片 URL
+          generatedMediaUrl = result.imageUrl; 
+          finalResponseText = "图片已成功生成";
+      } else if (isVideoGenerationMode) {
+          // 视频模式：返回生成的视频 URL
+          generatedMediaUrl = result.videoUrl; 
+          finalResponseText = "视频已成功生成";
+      } else {
+          // 聊天模式：解析文案
+          const finalParsedData = result as AIContent; 
           finalResponseText = formatAIMarketingText(finalParsedData);
-
-          // 若图片生成模式被激活
-          if (isImageGenerationMode) {
-              const generatedImageUrl = await handleGenerateImage(
-                effectiveImageUrl!, // 风格图
-                effectiveImageUrl!, // 参考图
-                trimmedInput
-              );
-              if (generatedImageUrl) {
-                aiFinalImage = generatedImageUrl;
-              }
-          }
       }
-      
-      // 最终更新 UI：使用最终文本和图片 URL，并关闭 loading
-      updatePlaceholderMessageContent(finalResponseText, true, aiFinalImage);
 
       // 新会话 ID 维护
+      const newSessionId = result.sessionId; 
       if (newSessionId && !activeSessionId) {
-          const newSession: UISession = { id: newSessionId, name: trimmedInput.slice(0, 10) || "新会话" };
+          const newSession: UISession = { 
+              id: newSessionId, 
+              name: trimmedInput.slice(0, 10) || "新会话" 
+          };
           addSession(newSession);
       }
 
+      updatePlaceholderMessageContent(finalResponseText, true, generatedMediaUrl);
     } catch (error) {
-        // 错误发生时，处理 UI 状态
-        console.error("API调用失败：", error);
-        toast.error("文案生成失败", { description: "请稍后再试" });
-        
-        // 错误时，将占位符文本改为错误提示，并关闭 loading
-        updatePlaceholderMessageContent("文案生成失败，请刷新重试。", true);
+      console.error("API调用失败:", error);
+      toast.error("操作失败", { description: "请稍后再试" });
     } finally {
-        setIsLoading(false);
-        // 清除引用
-        placeholderIndexRef.current = null;
+      setIsLoading(false);
+      placeholderIndexRef.current = null;
     }
+
   }, [input, isUploading, uploadedFile, currentSessionImageUrl, clearFile, uploadFileToSupabase, 
     // 添加新增的依赖项
-    updatePlaceholderMessageContent, activeSessionId, isImageGenerationMode, handleGenerateImage, userId, addSession
+    updatePlaceholderMessageContent, activeSessionId, isImageGenerationMode, userId, addSession
   ]);
   
   

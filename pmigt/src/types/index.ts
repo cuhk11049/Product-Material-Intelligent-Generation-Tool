@@ -33,7 +33,11 @@ export interface UIMessage{
   text?: string;
   sender: "user" | "ai";
   imageUrl?: string;
+  videoUrl?: string;
   loading?: boolean;
+
+  isImageTask?: boolean;
+  isVideoTask?: boolean;
 }
 
 // UI中的会话数据结构
