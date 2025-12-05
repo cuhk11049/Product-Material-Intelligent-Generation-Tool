@@ -4,7 +4,6 @@ import { createClient } from '@/utils/supabase/server';
 export const maxDuration = 300; 
 
 const VOLC_API_URL = "https://ark.cn-beijing.volces.com/api/v3/contents/generations/tasks";
-const VIDEO_MODEL_ID = process.env.VOLC_VIDEO_ENDPOINT_ID!; 
 
 export async function POST(req: Request) {
   try {
@@ -17,7 +16,7 @@ export async function POST(req: Request) {
       const userId = user.id;
 
     // 2. 接收参数
-    const {userPrompt, sessionId,saveImageUrl,contextImageUrl,isRegenerate,deleteMessageId } = await req.json();
+    const {userPrompt, sessionId,saveImageUrl,contextImageUrl,isRegenerate,deleteMessageId,endpoint_id} = await req.json();
 
     let currentSessionId = sessionId;
     if (!currentSessionId) {
@@ -54,7 +53,7 @@ export async function POST(req: Request) {
     const finalPrompt = `你是一个专业的商品讲解视频生成专家，请你根据上传的的图片生成一段对图片中产品的讲解视频,要有专业的配音解说 --resolution 480p  --duration 10 --camerafixed false --watermark false`;
 
     const requestBody = {
-      model: VIDEO_MODEL_ID,
+      model: endpoint_id,
       content: [
         {
           type: "text",

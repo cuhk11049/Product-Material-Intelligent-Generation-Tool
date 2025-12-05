@@ -28,7 +28,7 @@ export async function POST(req: Request) {
     const userId = user.id;
 
     // 接收前端传来的参数
-    const { saveImageUrl,contextImageUrl,isRegenerate,deleteMessageId, styleImageUrl,userPrompt, sessionId} = await req.json();
+    const { saveImageUrl,contextImageUrl,isRegenerate,deleteMessageId, styleImageUrl,userPrompt, sessionId,endpoint_id} = await req.json();
 
     let currentSessionId = sessionId;
 
@@ -93,7 +93,7 @@ export async function POST(req: Request) {
     `;
 
     const imageResponse = await client.images.generate({
-      model: process.env.VOLC_IMAGE_ENDPOINT_ID!, 
+      model: endpoint_id, 
       prompt: imageGenerationPrompt,
       size: "2048x2048",
       response_format: "url",

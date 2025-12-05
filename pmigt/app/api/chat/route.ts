@@ -32,7 +32,7 @@ export async function POST(req: Request) {
 
 
     // 4. 解析 Body：去掉了 userId 的解构，因为上面已经拿到了
-    const { userPrompt, sessionId,saveImageUrl,contextImageUrl,isRegenerate,deleteMessageId} = await req.json();
+    const { userPrompt, sessionId,saveImageUrl,contextImageUrl,isRegenerate,deleteMessageId,endpoint_id} = await req.json();
 
     let currentSessionId = sessionId;
     let finalImageUrl = contextImageUrl;
@@ -95,7 +95,6 @@ export async function POST(req: Request) {
     if (placeholderError) throw new Error("创建消息占位失败");
     const newMessageId = placeholderMsg.id; // ✅ 拿到了 Message ID
 
-    const targetModel = process.env.VOLC_ENDPOINT_ID!; 
     const systemPrompt = `
     你是一位拥有10年经验的资深电商运营专家，擅长爆款文案策划、SEO关键词优化及用户消费心理学。
 
@@ -129,7 +128,7 @@ export async function POST(req: Request) {
 
     `;
     const response = await client.chat.completions.create({
-      model: targetModel,
+      model: endpoint_id,
       messages: [
         { role: 'system', content: systemPrompt },
         {
