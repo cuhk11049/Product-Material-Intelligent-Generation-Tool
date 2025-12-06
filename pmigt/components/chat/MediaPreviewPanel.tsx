@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { ReactNode } from "react";
 import { Image as ImageIcon, Video as VideoIcon, Loader2, Sparkles, ArrowDownCircle } from "lucide-react";
 
 interface MediaPreviewPanelProps {
@@ -16,9 +16,9 @@ interface MediaPreviewPanelProps {
   subtitle?: string;
   
   /** * 从父组件传入的上传组件
-   * (例如之前写的 FloatingFileUploadBox)
    */
-  ImageUploadComponent: React.ReactNode;
+  ImageUploadComponent: ReactNode;
+  ModelSelectorComponent: ReactNode;
 }
 
 export const MediaPreviewPanel: React.FC<MediaPreviewPanelProps> = ({
@@ -28,6 +28,7 @@ export const MediaPreviewPanel: React.FC<MediaPreviewPanelProps> = ({
   title = "创作工作台",
   subtitle = "配置参考图并查看生成结果",
   ImageUploadComponent,
+  ModelSelectorComponent,
 }) => {
   // 当前展示的是视频还是图片
   const hasVideo = !!videoUrl;
@@ -41,8 +42,8 @@ export const MediaPreviewPanel: React.FC<MediaPreviewPanelProps> = ({
         flex flex-col overflow-hidden
       "
     >
-      {/* --- 顶部栏 (保留原样) --- */}
-      <div className="flex-none flex items-center justify-between px-4 py-3 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white z-20 relative">
+      {/* 顶部栏 */}
+      <div className="flex-none flex items-center justify-between px-4 py-2 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white z-20 relative">
         <div className="flex items-center gap-2">
           <Sparkles className="w-4 h-4 text-blue-500" />
           <div className="flex flex-col">
@@ -51,31 +52,37 @@ export const MediaPreviewPanel: React.FC<MediaPreviewPanelProps> = ({
           </div>
         </div>
 
-        {/* 右侧状态标签 */}
-        <div className="flex items-center gap-1 text-[11px] px-2 py-1 rounded-full bg-gray-100 text-gray-500">
-           {isLoading ? (
-             <>
-                <Loader2 className="w-3 h-3 animate-spin" />
-                <span>生成中...</span>
-             </>
-           ) : hasVideo || hasImage ? (
-             <>
-                <Sparkles className="w-3 h-3 text-purple-500" />
-                <span className="text-purple-600 font-medium">生成完毕</span>
-             </>
-           ) : (
-             <span>待机中</span>
-           )}
+        <div className="flex items-center gap-3 ">
+            {/* 模型选择器*/}
+            <div className="flex items-center h-full px-3 pt-1 mt-2">
+              {ModelSelectorComponent}
+            </div>
+            {/* 右侧状态标签 */}
+            <div className="flex items-center min-w-[60px] gap-1 text-[11px] px-3 py-1 rounded-2xl bg-gray-100 text-gray-500 flex-shrink-0">
+              {isLoading ? (
+                <>
+                    <Loader2 className="w-3 h-3 animate-spin" />
+                    <span>生成中...</span>
+                </>
+              ) : hasVideo || hasImage ? (
+                <>
+                    <Sparkles className="w-3 h-3 text-purple-500" />
+                    <span className="text-purple-600 font-medium">生成完毕</span>
+                </>
+              ) : (
+                <span>待机中</span>
+              )}
+            </div>
+          </div>
         </div>
-      </div>
 
-      {/* --- 主要内容区域 (上下平分) --- */}
+      {/* 主要内容区域*/}
       <div className="flex-1 relative bg-gray-50/60 flex flex-col">
         
-        {/* 1. 全局背景渐变 (保留你的代码，放在最底层) */}
+        {/* 全局背景渐变 */}
         <div className="pointer-events-none absolute inset-0 z-0 bg-[radial-gradient(circle_at_top,_rgba(59,130,246,0.12),_transparent_60%),_radial-gradient(circle_at_bottom,_rgba(139,92,246,0.10),_transparent_55%)]" />
 
-        {/* 2. 上半部分：参考图输入 (Flex-1) */}
+        {/* 上半部分：参考图输入 */}
         <div className="flex-1 z-10 flex flex-col border-b border-gray-200/60 min-h-0">
             {/* 小标题 */}
             <div className="flex-none px-4 py-2 flex items-center gap-2 text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -83,10 +90,9 @@ export const MediaPreviewPanel: React.FC<MediaPreviewPanelProps> = ({
                 参考图 (Reference)
             </div>
             
-            {/* 上传组件容器 - 居中显示 */}
+            {/* 上传组件容器 */}
             <div className="flex-1 flex items-center justify-center p-4 overflow-hidden">
                 <div className="h-full max-h-[220px] aspect-square w-auto flex items-center justify-center">
-                    {/* 这里渲染传入的组件 */}
                     {ImageUploadComponent}
                 </div>
             </div>
@@ -97,7 +103,7 @@ export const MediaPreviewPanel: React.FC<MediaPreviewPanelProps> = ({
              <ArrowDownCircle className="w-4 h-4 text-gray-300" />
         </div>
 
-        {/* 下半部分：生成结果 (Flex-1) */}
+        {/* 生成结果 */}
         <div className="flex-1 z-10 flex flex-col min-h-0">
              {/* 小标题 */}
              <div className="flex-none px-4 py-2 flex items-center gap-2 text-xs font-medium text-gray-500 uppercase tracking-wider">

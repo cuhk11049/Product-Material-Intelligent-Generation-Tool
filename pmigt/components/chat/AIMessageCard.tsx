@@ -42,13 +42,16 @@ const formatMessageText = (text: string) => {
 interface AIMessageCardProps {
     message: UIMessage;
     onMediaClick: (url: string, type: 'image' | 'video') => void;
+    isLastAIMessage: boolean;//判断是否是最后一条生成的AI消息，用于重新生成按钮显示
+    onRegenerate: (message: UIMessage) => void;//处理重新生成的按钮被点击 函数
+
 }
 
 /**
  * AI 回复消息卡片组件。
  * 根据消息是否包含图片 URL，渲染纯文本或图文混合布局。
  */
-export const AIMessageCard: React.FC<AIMessageCardProps> = ({ message ,onMediaClick}) => {
+export const AIMessageCard: React.FC<AIMessageCardProps> = ({ message ,onMediaClick,isLastAIMessage,onRegenerate}) => {
     const { text, imageUrl, videoUrl, loading,isImageTask, isVideoTask} = message;
     
     const ImageCard = !!imageUrl && !videoUrl;
@@ -98,6 +101,17 @@ export const AIMessageCard: React.FC<AIMessageCardProps> = ({ message ,onMediaCl
             </button>
         </div>
     );
+
+    // 判断重新生成按钮是否渲染
+    const shouldShowRegenerate = isLastAIMessage && !loading;
+    // 重新生成按钮
+    const renderRegenerateButton = () => {
+        if (shouldShowRegenerate) {
+            // 调用 onRegenerate 并传入当前 message
+            return <ReGenerateButton onClick={() => onRegenerate(message)} />;
+        }
+        return null;
+    }
 
     //若在加载
     if (loading) {
@@ -155,7 +169,7 @@ export const AIMessageCard: React.FC<AIMessageCardProps> = ({ message ,onMediaCl
                     >
                         {formatMessageText(text ?? "")}
                     </div>
-                    <ReGenerateButton onClick={() => console.log('Regenerate Text: ', message.id)} />
+                    {renderRegenerateButton()}
                 </div>
             </div>    
         );
@@ -195,7 +209,7 @@ export const AIMessageCard: React.FC<AIMessageCardProps> = ({ message ,onMediaCl
                             <Download className="h-4 w-4 group-hover:scale-110 transition-transform" />
                         </Button>
                     </div>
-                    <ReGenerateButton onClick={() => console.log('Regenerate Image: ', message.id)} />
+                    {renderRegenerateButton()}
                 </div>
             </div>
         );
@@ -236,7 +250,7 @@ export const AIMessageCard: React.FC<AIMessageCardProps> = ({ message ,onMediaCl
                             </div>
                         </div>
                     </div>
-                    <ReGenerateButton onClick={() => console.log('Regenerate Video: ', message.id)} />
+                    {renderRegenerateButton()}
                 </div>
             </div>
         );

@@ -51,6 +51,7 @@ export const FloatingFileUploadBox: React.FC<FloatingFileUploadBoxProps> = ({
     
     const fileInputRef = useRef<HTMLInputElement>(null);
 
+
     
     useEffect(() => {
         setFilePreviewUrl(initialImageUrl || null);
@@ -72,6 +73,7 @@ export const FloatingFileUploadBox: React.FC<FloatingFileUploadBoxProps> = ({
     }, [filePreviewUrl, setUploadError, onImageUploaded]);
 
     const handleFileChange = useCallback(async (e: React.ChangeEvent<HTMLInputElement> | { target: { files: File[] | null, value: string } }) => {
+        console.log("进入handleFileChange")
         const file = e.target.files?.[0];
         if (!file) return;
 

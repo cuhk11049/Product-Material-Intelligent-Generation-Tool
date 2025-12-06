@@ -34,10 +34,10 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
         loadUser();
     }, []);
     
-    // // 用于监听是否获取到userId
-    // useEffect(() => {
-    //     console.log("UserId 更新了：", userId);
-    // }, [userId]);
+    // 用于监听是否获取到userId
+    useEffect(() => {
+        console.log("UserId 更新了：", userId);
+    }, [userId]);
 
 
     return (

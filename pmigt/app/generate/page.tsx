@@ -6,6 +6,9 @@ import { useState, useCallback, useRef, useEffect, useMemo } from "react";
 import { ChatLayout } from "@/components/chat/ChatLayout";
 import { ChatMessageList } from "@/components/chat/ChatMessageList";
 import { ChatInputArea } from "@/components/chat/ChatInputArea";
+// 导入模型选择组件和类型
+import { ModelSelector } from "@/components/ModelSelector";
+import { ModelId, getModelsByMode, getDefaultModelIdByMode } from '@/src/types/model';
 
 // supabase
 import { useUser } from "@/components/user/UserProvider";
@@ -21,7 +24,6 @@ import { toast } from "sonner"
 import { formatAIMarketingText } from '@/utils/messageFormatter';
 
 // 导入 Hook 和常量
-import { useFileUploader } from "@/hooks/useFileUploader"; 
 import { useSessionManager } from "@/hooks/useSessionManager";
 import { useSearchParams } from "next/navigation";
 import { ModeType } from "@/components/ModeTabs";
@@ -36,11 +38,19 @@ export default function GeneratePage() {
     const urlMode = searchParams.get('mode') as ModeType | null;
     const urlPrompt = searchParams.get('prompt') || '';
     const urlImageUrl = searchParams.get('imageUrl') || null;
+    const urlModelId = searchParams.get('modelId') as ModelId | null;
 
     // 初始化currentMode状态,优先使用url传入的模式
     const [currentMode, setCurrentMode] = useState<ModeType>(
         urlMode && ['agent', 'image', 'video'].includes(urlMode) ? urlMode : 'agent'
     )
+    // 初始化 selectedModelId 状态
+    const [selectedModelId, setSelectedModelId] = useState<ModelId>(
+        // 优先使用 URL 中的 modelId，否则使用当前模式的默认模型
+        urlModelId && getModelsByMode(currentMode).some(m => m.id === urlModelId) 
+        ? urlModelId 
+        : getDefaultModelIdByMode(currentMode)
+    );
     const isImageGenerationMode = useMemo(() => currentMode === "image", [currentMode]);
     const isVideoGenerationMode = useMemo(() => currentMode === "video", [currentMode]);
 
@@ -80,6 +90,13 @@ export default function GeneratePage() {
     const resetSessionContent = useCallback(() => {
         setMessages([]);
         setCurrentSessionImageUrl(null);
+        setCurrentMode('agent'); 
+        setSelectedModelId('doubao-seed-vision'); // 重置为默认模式下的默认模型 ID
+        
+        // 确保其他相关状态也被重置，例如：
+        setPreviewMediaUrl(null);
+        setPreviewMediaType(null);
+        setIsImageFreshlyUploaded(false);
     }, []);
 
     // 处理模式切换
@@ -88,7 +105,9 @@ export default function GeneratePage() {
             toast.warning("任务处理中", { description: "请等待当前AI任务完成后再切换模式。" });
             return; 
         }
+        const defaultModelId = getDefaultModelIdByMode(mode);
         setCurrentMode(mode);
+        setSelectedModelId(defaultModelId);
     }, [isLoading]);
 
     // hook
@@ -201,7 +220,7 @@ export default function GeneratePage() {
         setMessages(prev => {
             const newList = [...prev];
             const index = placeholderIndexRef.current;
-            console.log("进入实时更新AI占位消息函数")
+            console.log("进入实时更新AI占位消息函数",index,newList)
             
             if (index !== null && index < newList.length) {
                 const currentMessage = newList[index];
@@ -234,6 +253,8 @@ export default function GeneratePage() {
                     videoUrl: newVideoUrl, // 更新视频 URL
                 };
                 console.log("AI消息替换成功:", newList[index]);
+                
+                placeholderIndexRef.current = null;
             }
             
             return newList;
@@ -308,7 +329,11 @@ export default function GeneratePage() {
             saveImageUrl: finalIsFresh ? finalImage : undefined, 
             isRegenerate: isRegenerate,
             deleteMessageId: deleteMessageId, 
+            modelId: urlModelId?urlModelId:selectedModelId,
         };
+
+        console.log("发送聊天请求，bodyData JSON:", JSON.stringify(bodyData, null, 2));
+
 
         if (isImageGenerationMode) {
             bodyData.styleImageUrl = "https://ifrctixzjfnynncamthq.supabase.co/storage/v1/object/public/images/68fde908-0686-4b14-a49a-82014dce13a4/cef0470bbe57eb8159bfc3bd6e780052.jpg";
@@ -366,7 +391,16 @@ export default function GeneratePage() {
                 finalResponseText = "视频已成功生成";
             } else {
                 // 聊天模式：解析文案
-                const finalParsedData = result as AIContent; 
+                let finalParsedData=result.content;
+
+                try {
+                    finalParsedData = JSON.parse(result.content);
+                } catch (e) {
+                    console.error("JSON解析失败:", result.content);
+                    finalResponseText = "AI 返回内容格式错误";
+                    updatePlaceholderMessageContent(finalResponseText, true);
+                    return;
+                }
                 finalResponseText = formatAIMarketingText(finalParsedData);
             }
 
@@ -379,7 +413,8 @@ export default function GeneratePage() {
                 console.log("加载新会话:", newSessionId);
                 addSession(newSession);
             }
-            console.log("生成的媒体url:",generatedMediaUrl)
+            console.log("生成的媒体url:", generatedMediaUrl)
+            console.log("查看占位消息",placeholderIndexRef.current)
             updatePlaceholderMessageContent(finalResponseText, true, generatedMediaUrl);
         } catch (error) {
             console.error("API调用失败:", error);
@@ -387,11 +422,10 @@ export default function GeneratePage() {
             toast.error("操作失败", { description: "请稍后再试" });
         } finally {
             setIsLoading(false);
-            placeholderIndexRef.current = null;
             setIsImageFreshlyUploaded(false);
         }
 
-    }, [input,  currentSessionImageUrl,  isImageFreshlyUploaded,
+    }, [input,  currentSessionImageUrl,  isImageFreshlyUploaded,selectedModelId,
         updatePlaceholderMessageContent, activeSessionId, isImageGenerationMode, userId, addSession
     ]);
 
@@ -400,16 +434,18 @@ export default function GeneratePage() {
     // 若有prompt和imageUrl,自动发送
     useEffect(() => {
         // 确保同时存在提示词和图片 URL
-        if (urlPrompt && urlImageUrl) {
+        if (urlPrompt && urlImageUrl&&urlModelId) {
             if (autoSentRef.current) return;     // 第二次渲染直接退出
             autoSentRef.current = true;
             
-            console.log(`接收到 Home 页面的 Prompt: ${urlPrompt}, Mode: ${currentMode}, imageUrl: ${urlImageUrl}`);
+            console.log(`接收到 Home 页面的 Prompt: ${urlPrompt}, Mode: ${currentMode},ModelId: ${urlModelId}, imageUrl: ${urlImageUrl}`);
             
             // 自动设置状态 确保 handleSend 能拿到最新的值
             setInput(urlPrompt);
             setCurrentSessionImageUrl(urlImageUrl);
             setIsImageFreshlyUploaded(true);
+            setSelectedModelId(urlModelId);
+
             
             // 清除 URL 中的参数，防止刷新重复发送
             window.history.replaceState(null, '', '/generate'); 
@@ -433,6 +469,17 @@ export default function GeneratePage() {
                     isLoading={isLoading}
                     imageUrl={previewMediaType === 'image' ? previewMediaUrl : null}
                     videoUrl={previewMediaType === 'video' ? previewMediaUrl : null}
+
+                    ModelSelectorComponent={
+                        <div className="p-4 pt-0 w-full flex justify-center">
+                            <ModelSelector
+                                value={selectedModelId}
+                                onChange={setSelectedModelId}
+                                models={getModelsByMode(currentMode)} // 根据当前模式获取模型列表
+                                disabled={isLoading}//加载时禁用
+                            />
+                        </div>
+                    }
                     
                     ImageUploadComponent={
                         <FloatingFileUploadBox

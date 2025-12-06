@@ -2,6 +2,7 @@
 import { OpenAI } from 'openai';
 import { NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server'; 
+import { getModelEndpointId } from '@/src/types/model';
 
 const client = new OpenAI({
   apiKey: process.env.VOLC_API_KEY,
@@ -28,7 +29,17 @@ export async function POST(req: Request) {
     const userId = user.id;
 
     // 接收前端传来的参数
-    const { saveImageUrl,contextImageUrl,isRegenerate,deleteMessageId, styleImageUrl,userPrompt, sessionId,endpoint_id} = await req.json();
+    const { saveImageUrl, contextImageUrl, isRegenerate, deleteMessageId, styleImageUrl, userPrompt, sessionId, modelId } = await req.json();
+    
+    const backendEndpointId = getModelEndpointId(modelId);
+
+    if (!backendEndpointId) {
+        // 如果找不到对应的后端 ID，返回错误
+        return NextResponse.json(
+            { success: false, error: `Invalid model configuration for ID: ${modelId}` }, 
+            { status: 400 }
+        );
+    }
 
     let currentSessionId = sessionId;
 
@@ -93,7 +104,7 @@ export async function POST(req: Request) {
     `;
 
     const imageResponse = await client.images.generate({
-      model: endpoint_id, 
+      model: backendEndpointId, 
       prompt: imageGenerationPrompt,
       size: "2048x2048",
       response_format: "url",

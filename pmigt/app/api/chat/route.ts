@@ -1,6 +1,7 @@
 import { OpenAI } from 'openai';
 import { NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server'; 
+import { getModelEndpointId } from '@/src/types/model';
 
 
 const client = new OpenAI({
@@ -31,8 +32,18 @@ export async function POST(req: Request) {
     const userId = user.id;
 
 
-    // 4. 解析 Body：去掉了 userId 的解构，因为上面已经拿到了
-    const { userPrompt, sessionId,saveImageUrl,contextImageUrl,isRegenerate,deleteMessageId,endpoint_id} = await req.json();
+    // 解析 Body：去掉了 userId 的解构，因为上面已经拿到了
+    const { userPrompt, sessionId, saveImageUrl, contextImageUrl, isRegenerate, deleteMessageId, modelId } = await req.json();
+    
+    const backendEndpointId = getModelEndpointId(modelId);
+
+    if (!backendEndpointId) {
+        // 如果找不到对应的后端 ID，返回错误
+        return NextResponse.json(
+            { success: false, error: `Invalid model configuration for ID: ${modelId}` }, 
+            { status: 400 }
+        );
+    }
 
     let currentSessionId = sessionId;
     let finalImageUrl = contextImageUrl;
@@ -81,20 +92,6 @@ export async function POST(req: Request) {
       await supabase.from('messages').delete().eq('id', deleteMessageId);
     }
 
-    const { data: placeholderMsg, error: placeholderError } = await supabase
-      .from('messages')
-      .insert({
-        session_id: currentSessionId,
-        user_id: userId,
-        role: 'assistant',
-        content: '', // 先存空字符串，或者是 "正在生成中..."
-      })
-      .select('id') // 只要 ID
-      .single();
-
-    if (placeholderError) throw new Error("创建消息占位失败");
-    const newMessageId = placeholderMsg.id; // ✅ 拿到了 Message ID
-
     const systemPrompt = `
     你是一位拥有10年经验的资深电商运营专家，擅长爆款文案策划、SEO关键词优化及用户消费心理学。
 
@@ -128,7 +125,7 @@ export async function POST(req: Request) {
 
     `;
     const response = await client.chat.completions.create({
-      model: endpoint_id,
+      model: backendEndpointId,
       messages: [
         { role: 'system', content: systemPrompt },
         {
@@ -140,67 +137,52 @@ export async function POST(req: Request) {
         },
       ],
       temperature: 0.5,
-      stream: true,
     });
 
-    const stream = new ReadableStream({
-      async start(controller) {
-        const encoder = new TextEncoder();
-        let accumulatedContent = ""; 
+    // 解析完整响应内容
+    const accumulatedContent = response.choices[0]?.message?.content || "";
+    
+    console.log("AI 完整返回内容:", accumulatedContent.slice(0, 100) + '...');
+    
+    // JSON 清洗和准备存储内容 
+    const cleanJson = accumulatedContent.replace(/```json|```/g, '').trim();
+    let parsedData = {}; 
+    try {
+       parsedData = JSON.parse(cleanJson);
+    } catch {
+       console.log("入库时 JSON 解析失败，将存储原始文本");
+    }
+    
+    const finalContentToSave = JSON.stringify(parsedData).length > 2 
+        ? JSON.stringify(parsedData) 
+        : accumulatedContent;
+        
+    const { data: finalMsg, error: insertError } = await supabase
+      .from('messages')
+      .insert({
+        session_id: currentSessionId,
+        user_id: userId,
+        role: 'assistant',
+        content: finalContentToSave, // 直接存入最终内容
+      })
+      .select('id')
+      .single();
 
-        try {
-          for await (const chunk of response) {
+    if (insertError) {
+      console.error("❌ AI 消息存入数据库失败:", insertError);
+      throw new Error("AI 消息存入数据库失败");
+    }
 
-            const content = chunk.choices[0]?.delta?.content || "";
-            
-            if (content) {
-              controller.enqueue(encoder.encode(content));
-              accumulatedContent += content;
-            }
-          }
-        } catch (err) {
-          console.error("Stream error:", err);
-          controller.error(err);
-        } finally {
-          controller.close(); 
-          console.log("流式输出完毕，开始入库...");
-          try {
-            // 简单的 JSON 清洗逻辑
-            const cleanJson = accumulatedContent.replace(/```json|```/g, '').trim();
-            let parsedData = {}; 
-            try {
-               parsedData = JSON.parse(cleanJson);
-            } catch {
-               console.log("入库时 JSON 解析失败，将存储原始文本");
-            }
-            
-            const finalContentToSave = JSON.stringify(parsedData).length > 2 
-                ? JSON.stringify(parsedData) 
-                : accumulatedContent;
+    const newMessageId = finalMsg.id; // 拿到最终消息的 ID
 
-            await supabase
-              .from('messages')
-              .update({
-                content: finalContentToSave
-              })
-              .eq('id', newMessageId); // 使用之前拿到的 ID
-            
-            console.log(`数据库更新完成 ✅ (ID: ${newMessageId})`);
-          } catch (dbError) {
-             console.error("数据库存入失败:", dbError);
-          }
-        }
-      },
-    });
-
-    // 9. 返回 Response 流对象
-    // 把 SessionID 放在 Header 里，前端可以从 headers.get('x-session-id') 拿到
-    return new Response(stream, {
-      headers: {
-        'Content-Type': 'text/plain; charset=utf-8',
-        'X-Session-Id': currentSessionId, 
-        'X-Message-Id': newMessageId,
-      },
+     return NextResponse.json({
+        success: true,
+        sessionId: currentSessionId,
+        messageId: newMessageId,
+        content: finalContentToSave, // 返回完整内容，便于前端直接渲染
+    }, {
+        // 可以将 SessionId 放在 Header 或 Body 中，这里选择 Body
+        headers: { 'X-Session-Id': currentSessionId, 'X-Message-Id': newMessageId },
     });
 
 

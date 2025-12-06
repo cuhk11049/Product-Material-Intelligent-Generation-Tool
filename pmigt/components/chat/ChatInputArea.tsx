@@ -80,7 +80,7 @@ export const ChatInputArea: React.FC<ChatInputAreaProps> = (props) => {
                     
                     {/* 发送按钮 */}
                     <Button
-                        onClick={handleSend}
+                        onClick={() => handleSend()} 
                         disabled={isSendDisabled}
                         className="bg-gradient-to-r from-[#ff004f] to-[#2d5bff] text-white h-12 w-12 p-0 rounded-full transition-opacity disabled:opacity-50"
                     >

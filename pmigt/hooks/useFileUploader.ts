@@ -2,6 +2,7 @@ import { useState, useCallback } from 'react';
 import { createClient } from '@/utils/supabase/client'; 
 import { v4 as uuidv4 } from 'uuid';
 import { useUser } from "@/components/user/UserProvider";
+import { toast } from 'sonner';
 
 const SUPABASE_BUCKET_NAME = "images"; 
 const supabase = createClient();
@@ -15,17 +16,33 @@ export const useFileUploader = () => {
     const { userId, loading } = useUser();
 
     const uploadFileToSupabase = useCallback(async (file: File): Promise<string | null> => {
-        setIsUploading(true);
-        setUploadError(null);
-        setUploadProgress(0);
+        console.log("进入上传图片函数：", userId, loading);
+        if (loading) {
+            toast.warning("会话初始化中...", { 
+                description: "请等待页面加载完成后再尝试上传。",
+                duration: 3000
+            });
+            console.warn("UserProvider 仍在加载中，无法执行上传。");
+            return null;
+        }
 
-        console.log("上传图片:",userId);
 
         // 确保用户已登录 (或已匿名登录)
         if (!userId) {
+            toast.error("操作失败", { 
+                description: "服务器连接异常，请尝试刷新页面后重试。",
+                duration: 5000 // 保持显示 5 秒
+            });
             console.error("用户 ID 不存在，无法执行上传。");
             return null;
         }
+
+        console.log("上传图片:",userId);
+
+
+        setIsUploading(true);
+        setUploadError(null);
+        setUploadProgress(0);
 
         try {
             const fileExt = file.name.split(".").pop();
@@ -56,7 +73,7 @@ export const useFileUploader = () => {
             setIsUploading(false);
             setUploadProgress(100);
         }
-    }, []);
+    }, [userId,loading]);
 
     return {
         isUploading,

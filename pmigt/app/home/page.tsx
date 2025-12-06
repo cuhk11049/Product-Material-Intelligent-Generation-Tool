@@ -11,7 +11,8 @@ import { FloatingFileUploadBox } from '@/components/FloatingFileUploadBox';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
 
-import { ModelId, ALL_MODELS,getModelsByMode, getDefaultModelIdByMode } from '@/src/types/model';
+import { ModelId,getModelsByMode, getDefaultModelIdByMode } from '@/src/types/model';
+import { ModelSelector } from '@/components/ModelSelector';
 
 // 模拟素材数据，添加标题和高度变化
 const demoInspiration = [
@@ -35,9 +36,7 @@ interface InspirationCardProps {
 
 const InspirationCard: React.FC<InspirationCardProps> = ({ src, title, height }) => (
     <div className="break-inside-avoid mb-6 p-1 bg-white rounded-xl shadow-lg hover:shadow-2xl transition duration-300 cursor-pointer overflow-hidden">
-        {/* 模拟图片，实际项目中应使用 Next/image 优化 */}
         <div className={`w-full ${height} bg-gray-200 rounded-lg overflow-hidden`}>
-             {/* 实际项目中这里是 <Image src={src} ... /> */}
             <img 
                 src={src} 
                 alt={title}
@@ -72,7 +71,10 @@ export default function HomePage() {
     // 处理模式切换
     const handleModeChange = useCallback((mode: ModeType) => {
         setCurrentMode(mode);
-        console.log("切换到模式:", mode);
+        // 自动将 selectedModelId 重置为当前模式的默认模型
+        const defaultModel = getDefaultModelIdByMode(mode);
+        setSelectedModelId(defaultModel);
+        console.log("切换到模式:", mode,"当前模型为：",defaultModel);
     }, []);
 
     // 渲染不同模式下的输出提示
@@ -81,17 +83,19 @@ export default function HomePage() {
             case 'agent':
                 return "请先上传商品参考图,描述你想要的商品标题和文案内容";
             case 'image':
-                return "图片";
+                return "请先上传商品参考图,描述你想要的商品主图氛围";
             case 'video':
-                return "视频";
+                return "请先上传商品参考图,描述你想要的商品讲解视频";
             default:
                 return "输入你的创意描述，让AI Agent帮你完成任务...";
         }
     }
 
+    // 获取当前模式可选择的模型
+    const models = getModelsByMode(currentMode);
+
     const submit = () => {
         const trimmedPrompt = prompt.trim();
-        const models = getModelsByMode(currentMode);//获取当前模式下所有可选模型
         const selectedModel = models.find(m => m.id === selectedModelId);//找到当前选择的模型
         // 如果模型不存在或 endpoint 不存在，则警告
         if (!selectedModel || !selectedModel.endpoint) {
@@ -122,14 +126,17 @@ export default function HomePage() {
         const params = new URLSearchParams();
         params.append('prompt', trimmedPrompt);//提示词
         params.append('mode', currentMode);//当前模式
+        params.append('modelId', selectedModel.id);//传递选择的模型名字
         // 当前会话参考图
         if (finalImageUrl) {
             params.append('imageUrl', finalImageUrl);
         }
-        console.log("发送的路由:",'prompt', trimmedPrompt,'mode', currentMode,'imageUrl', finalImageUrl)
+        console.log("发送的路由:",'prompt', trimmedPrompt,'mode', currentMode,'imageUrl', finalImageUrl,'selectedModel.id')
         // 使用 Next.js 的路由跳转，传递 prompt
         router.push(`/generate?${params.toString()}`);
     };
+
+
 
     return (
         // 整个页面的背景：更柔和的渐变
@@ -212,17 +219,11 @@ export default function HomePage() {
                     <div className="flex justify-between items-center px-4 pt-3 mt-2 
                                     border-t border-gray-100/70"
                     >
-                        <div className="flex space-x-3 text-gray-500 text-sm">
-                            {/* 突出“即时创作” Tag */}
-                            <span className="p-1 px-3 rounded-full bg-blue-50 text-blue-600 font-medium 
-                                            shadow-sm hover:bg-blue-100 transition">
-                                即时创作
-                            </span>
-                            {/* 其他参数 Tag 样式统一 */}
-                            <span className="p-1 px-3 rounded-full bg-gray-100 hover:bg-gray-200 cursor-pointer transition">3D 动画</span>
-                            <span className="p-1 px-3 rounded-full bg-gray-100 hover:bg-gray-200 cursor-pointer transition">16:9</span>
-                            <span className="p-1 px-3 rounded-full bg-gray-100 hover:bg-gray-200 cursor-pointer transition">更多参数...</span>
-                        </div>
+                        <ModelSelector 
+                            value={selectedModelId}
+                            onChange={setSelectedModelId}
+                            models={models} 
+                        />
                         
                         {/* 图片参考按钮 (用于提醒用户，但功能已由 FloatingBox 承担) */}
                         <Button variant="ghost" className="text-sm text-gray-500 hover:text-blue-600">
