@@ -103,11 +103,42 @@ export async function POST(req: Request) {
     //eslint-disable-next-line @typescript-eslint/no-explicit-any
     }as any);
 
-    const generatedImageUrl = imageResponse.data?.[0]?.url;
+    const tempImageUrl = imageResponse.data?.[0]?.url;
 
-    if (!generatedImageUrl) {
+    if (!tempImageUrl) {
         throw new Error("模型未返回图片 URL");
     }
+
+    console.log("图片生成成功，正在转存至 Supabase...", tempImageUrl);
+
+    const fetchRes = await fetch(tempImageUrl);
+    if (!fetchRes.ok) throw new Error("下载生成图片失败");
+    const imageArrayBuffer = await fetchRes.arrayBuffer();
+    const imageBuffer = Buffer.from(imageArrayBuffer);
+
+    const contentType = fetchRes.headers.get('content-type') || 'image/jpeg';
+    const extension = contentType.split('/')[1] || 'jpeg';
+
+    const fileName = `images/${userId}/${Date.now()}_generated.${extension}`;
+
+    const { error: uploadError } = await supabase.storage
+      .from('generated_files') 
+      .upload(fileName, imageBuffer, {
+        contentType: contentType,
+        upsert: false
+    });
+
+    if (uploadError) {
+      console.error("Supabase 上传失败:", uploadError);
+      throw new Error("图片转存失败");
+    }
+
+    const { data: { publicUrl: finalPermanentUrl } } = supabase.storage
+      .from('generated_files')
+      .getPublicUrl(fileName);
+
+    console.log("图片已转存:", finalPermanentUrl);
+
 
     const { data: assistantMessage} = await supabase
       .from('messages')
@@ -116,14 +147,14 @@ export async function POST(req: Request) {
         user_id: userId,
         role: 'assistant',
         content: JSON.stringify({ note: "图片已生成" }),
-        image_url: generatedImageUrl
+        image_url: finalPermanentUrl
       })
       .select('id')
       .single();
 
     return NextResponse.json({ 
         success: true, 
-        imageUrl: generatedImageUrl,
+        imageUrl: finalPermanentUrl,
         sessionId: currentSessionId,
         messageId: assistantMessage?.id 
     });
