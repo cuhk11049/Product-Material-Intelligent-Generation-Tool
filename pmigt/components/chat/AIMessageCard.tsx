@@ -1,7 +1,6 @@
 //展示AI回复的消息
 import React, { useCallback } from 'react';
 import { UIMessage } from '@/src/types/index'; 
-import AiAvatar from './AI_avatar';
 import { Download, Film, Loader2, RotateCw } from 'lucide-react';
 import { Button } from '../ui/button';
 

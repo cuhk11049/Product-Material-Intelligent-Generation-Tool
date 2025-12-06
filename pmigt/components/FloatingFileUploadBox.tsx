@@ -107,6 +107,7 @@ export const FloatingFileUploadBox: React.FC<FloatingFileUploadBoxProps> = ({
         setIsDragOver(false);
         const files = Array.from(e.dataTransfer.files);
         if (files.length > 0) {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             handleFileChange({ target: { files: files, value: '' } } as any);
         }
     }, [handleFileChange]);

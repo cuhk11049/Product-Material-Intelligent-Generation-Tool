@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { Lightbulb, Folder, Bell, Settings, Aperture } from 'lucide-react';
+import { Lightbulb, Folder, Settings, Aperture } from 'lucide-react';
 import AI_avatar from './chat/AI_avatar';
 
 // 导航链接数据
