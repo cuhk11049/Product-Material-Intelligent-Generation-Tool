@@ -33,6 +33,7 @@ interface ChatInputAreaProps {
     clearFile: () => void;
     toggleImageGenerationMode: () => void;
     toggleVideoGenerationMode: () => void;
+    onUploadCustomStyle?: (file: File) => Promise<string | null>;
     
     // Refs
     fileInputRef: React.RefObject<HTMLInputElement|null>;
@@ -45,7 +46,7 @@ export const ChatInputArea: React.FC<ChatInputAreaProps> = (props) => {
         handleFileChange, handleKeyDown, handleDragOver, handleDragLeave, handleDrop, clearFile, 
         isImageGenerationMode, toggleImageGenerationMode,
         isVideoGenerationMode,toggleVideoGenerationMode,
-        currentStyle, setCurrentStyle,
+        currentStyle, setCurrentStyle, onUploadCustomStyle,
         fileInputRef 
     } = props;
     
@@ -123,6 +124,7 @@ export const ChatInputArea: React.FC<ChatInputAreaProps> = (props) => {
                     <StyleSelector 
                         selectedStyleId={currentStyle.id}
                         onSelect={setCurrentStyle}
+                        onUploadCustom={onUploadCustomStyle}
                     />
                 </div>
             )}

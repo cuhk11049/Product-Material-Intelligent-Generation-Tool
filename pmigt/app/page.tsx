@@ -56,11 +56,15 @@ export default function HomePage() {
       
   //整合 Hook
   const { 
-    isUploading, 
-    uploadProgress, 
-    uploadError, 
-    uploadFileToSupabase,
-    setUploadError
+    isUploading: isMainUploading, 
+    uploadProgress: mainUploadProgress, 
+    uploadError: mainUploadError, 
+    uploadFileToSupabase: uploadMainFile,
+    setUploadError: setMainUploadError
+  } = useFileUploader(); 
+
+  const { 
+    uploadFileToSupabase: uploadStyleFile,
   } = useFileUploader(); 
 
   const resetSessionContent = useCallback(() => {
@@ -228,11 +232,11 @@ export default function HomePage() {
     }
     setUploadedFile(null);
     setFilePreviewUrl(null);
-    setUploadError(null); // 清空 Hook 内部错误
+    setMainUploadError(null); // 清空 Hook 内部错误
     if (fileInputRef.current) {
       fileInputRef.current.value = ""; 
     }
-  }, [filePreviewUrl, setUploadError]);
+  }, [filePreviewUrl, setMainUploadError]);
 
 
   // 统一处理文件选择和拖放
@@ -302,18 +306,27 @@ export default function HomePage() {
     });
   }, []);
 
+  // 处理自定义风格图片的上传
+  const handleCustomStyleUpload = useCallback(async (file: File): Promise<string | null> => {
+      const url = await uploadStyleFile(file);
+      if (!url) {
+          toast.error("风格图片上传失败");
+          return null;
+      }
+      return url;
+  }, [uploadStyleFile]); 
 
   // 通用发送请求
   const handleSend = useCallback(async (isRegenerate:boolean=false,deleteMessageId?:string) => {
     const trimmedInput = input.trim();
-    if (isLoading || isUploading || isHistoryLoading) return;
+    if (isLoading || isMainUploading || isHistoryLoading) return;
     
     let effectiveImageUrl = currentSessionImageUrl;
     let isNewFileUploaded = false; // 用于判断是否需要将图片 URL 存入用户消息
 
     // 文件上传和状态更新
     if (uploadedFile) {
-      const newUrl = await uploadFileToSupabase(uploadedFile);
+      const newUrl = await uploadMainFile(uploadedFile);
       if (!newUrl) {
         toast.error("上传失败", { description: "图片上传失败，请重试。" });
         return;
@@ -432,7 +445,7 @@ export default function HomePage() {
       placeholderIndexRef.current = null;
     }
 
-  }, [input, isUploading, uploadedFile, currentSessionImageUrl, clearFile, uploadFileToSupabase, 
+  }, [input, isMainUploading, uploadedFile, currentSessionImageUrl, clearFile,uploadMainFile, 
     // 添加新增的依赖项
     updatePlaceholderMessageContent, activeSessionId, isImageGenerationMode, userId, addSession
   ]);
@@ -461,12 +474,12 @@ export default function HomePage() {
             // 状态
             input={input}
             isLoading={isLoading}
-            isUploading={isUploading}
+            isUploading={isMainUploading}
             uploadedFile={uploadedFile}
             filePreviewUrl={filePreviewUrl}
             currentSessionImageUrl={currentSessionImageUrl}
-            uploadProgress={uploadProgress}
-            uploadError={uploadError}
+            uploadProgress={mainUploadProgress}
+            uploadError={mainUploadError}
             isDragging={isDragging}
             isImageGenerationMode={isImageGenerationMode}
             toggleImageGenerationMode={toggleImageGenerationMode}
@@ -483,6 +496,7 @@ export default function HomePage() {
             handleDragOver={handleDragOver}
             handleDragLeave={handleDragLeave}
             handleDrop={handleDrop}
+            onUploadCustomStyle={handleCustomStyleUpload}
             clearFile={clearFile}
             
             // Refs

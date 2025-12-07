@@ -1,5 +1,5 @@
 // src/constants/styles.ts
-
+export const CUSTOM_STYLE_ID = 'custom_style';
 export interface StyleOption {
   id: string;
   name: string;
