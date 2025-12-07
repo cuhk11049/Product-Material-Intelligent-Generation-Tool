@@ -3,6 +3,8 @@ import React from 'react';
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Send, Upload, X, Loader2,Image, Video } from "lucide-react";
+import { StyleOption } from '@/src/constants/styles';
+import {StyleSelector} from '@/components/chat/StyleSelector';
 
 interface ChatInputAreaProps {
     // 状态
@@ -17,9 +19,11 @@ interface ChatInputAreaProps {
     isDragging: boolean;
     isImageGenerationMode: boolean;//是否需要生成主图氛围
     isVideoGenerationMode: boolean;//是否需要生成讲解视频
+    currentStyle?: StyleOption;
     
     // Handlers
     setInput: (value: string) => void;
+    setCurrentStyle?: (style: StyleOption) => void;
     handleSend: () => Promise<void>;
     handleFileChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
     handleKeyDown: (e: React.KeyboardEvent<HTMLInputElement>) => void;
@@ -41,6 +45,7 @@ export const ChatInputArea: React.FC<ChatInputAreaProps> = (props) => {
         handleFileChange, handleKeyDown, handleDragOver, handleDragLeave, handleDrop, clearFile, 
         isImageGenerationMode, toggleImageGenerationMode,
         isVideoGenerationMode,toggleVideoGenerationMode,
+        currentStyle, setCurrentStyle,
         fileInputRef 
     } = props;
     
@@ -112,7 +117,16 @@ export const ChatInputArea: React.FC<ChatInputAreaProps> = (props) => {
                     </div>
                 )}
             </div>
-            
+
+            {isImageGenerationMode && currentStyle && setCurrentStyle && (
+                <div className="w-full max-w-4xl px-1 animate-in fade-in slide-in-from-bottom-1 duration-300">
+                    <StyleSelector 
+                        selectedStyleId={currentStyle.id}
+                        onSelect={setCurrentStyle}
+                    />
+                </div>
+            )}
+
             {/* 输入框和按钮组 */}
             <div className="flex w-full max-w-4xl gap-2">
                 {/* 隐藏的文件输入框 */}

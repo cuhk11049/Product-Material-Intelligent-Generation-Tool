@@ -7,6 +7,7 @@ import { ChatInputArea } from "@/components/chat/ChatInputArea";
 import { createClient } from '@/utils/supabase/client'; 
 
 import { AIContent, Message, UIMessage, UISession} from '@/src/types/index'
+import { DEFAULT_STYLE, StyleOption } from '@/src/constants/styles';
 
 import { toast } from "sonner"
 
@@ -36,6 +37,8 @@ export default function HomePage() {
 
   // 是否需要生成讲解视频
   const [isVideoGenerationMode, setIsVideoGenerationMode] = useState(false);
+
+  const [currentStyle, setCurrentStyle] = useState<StyleOption>(DEFAULT_STYLE);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -376,7 +379,7 @@ export default function HomePage() {
     };
 
     if (isImageGenerationMode) {
-        bodyData.styleImageUrl = "https://ifrctixzjfnynncamthq.supabase.co/storage/v1/object/public/images/68fde908-0686-4b14-a49a-82014dce13a4/cef0470bbe57eb8159bfc3bd6e780052.jpg";
+        bodyData.styleImageUrl = currentStyle.imageUrl;
     }
 
     let finalResponseText = '';
@@ -469,6 +472,8 @@ export default function HomePage() {
             toggleImageGenerationMode={toggleImageGenerationMode}
             isVideoGenerationMode={isVideoGenerationMode}
             toggleVideoGenerationMode={toggleVideoGenerationMode}
+            currentStyle={currentStyle}
+            setCurrentStyle={setCurrentStyle}
             
             // Handlers
             setInput={setInput}
