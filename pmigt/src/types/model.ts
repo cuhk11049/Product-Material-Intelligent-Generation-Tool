@@ -1,5 +1,3 @@
-// src/types/model.ts
-
 /**
  * 所有的模型 ID 类型
  */
@@ -26,7 +24,7 @@ export interface AppModel {
  * 所有模式下可用的模型列表，通过 process.env 引用环境变量
  */
 export const ALL_MODELS: AppModel[] = [
-    // --- Agent 模式 (文本/多模态) ---
+    //  Agent 模式 (文本/多模态) 
     { 
         id: 'doubao-seed-vision', 
         name: 'Doubao Seed Vision', 
@@ -49,7 +47,7 @@ export const ALL_MODELS: AppModel[] = [
         description: '豆包轻量模型'
     },
 
-    // --- Image 模式 (文生图/图生图) ---
+    //Image 模式 (文生图/图生图) 
     { 
         id: 'doubao-seedream4.5', 
         name: 'Doubao Seedream 4.5 ', 
@@ -65,7 +63,7 @@ export const ALL_MODELS: AppModel[] = [
         description: '经典文生图模型'
     },
 
-    // --- Video 模式 (文生视频) ---
+    //  Video 模式 (文生视频) 
     { 
         id: 'doubao-seedance-pro', 
         name: 'Doubao Seedance Pro', 

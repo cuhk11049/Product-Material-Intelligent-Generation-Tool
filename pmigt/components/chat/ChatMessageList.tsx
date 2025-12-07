@@ -91,9 +91,6 @@ export const ChatMessageList: React.FC<ChatMessageListProps> = ({ messages,isHis
             {isNewSession? (
                 // 若为新会话 渲染欢迎界面
                 <div className="absolute inset-0 flex items-center justify-center p-8">
-                    <div className="max-w-2xl w-full h-auto">
-                        <WelcomeMessage />
-                    </div>
                 </div>
             ) : (
                 <div ref={containerRef} className="space-y-6 max-w-4xl mx-auto w-full">

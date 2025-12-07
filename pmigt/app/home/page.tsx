@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useCallback, useState } from 'react';
+import React, { useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from "@/components/ui/button";
 import { Image, Send } from 'lucide-react'; 
@@ -11,9 +11,10 @@ import { FloatingFileUploadBox } from '@/components/FloatingFileUploadBox';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
 
-import { ModelId,getModelsByMode, getDefaultModelIdByMode } from '@/src/types/model';
+import { getModelsByMode } from '@/src/types/model';
 import { ModelSelector } from '@/components/ModelSelector';
 import { useInitialSessionLoader } from '@/hooks/useInitialSessionLoader';
+import { useGenStore } from '@/src/store/useGenStore';
 
 // 模拟素材数据，添加标题和高度变化
 const demoInspiration = [
@@ -55,28 +56,30 @@ const InspirationCard: React.FC<InspirationCardProps> = ({ src, title, height })
 export default function HomePage() {
     useInitialSessionLoader();
     const router = useRouter();
-    const [prompt, setPrompt] = useState('');
 
-    // 状态
-    const [currentMode, setCurrentMode] = useState<ModeType>("agent");//当前模式
-    const [finalImageUrl, setFinalImageUrl] = useState<string | null>(null);//接收图片url
+    // 导入状态管理里的状态什么的
+    const prompt = useGenStore(state => state.homePrompt);
+    const currentMode = useGenStore(state => state.homeMode);
+    const selectedModelId = useGenStore(state => state.homeModelId);
+    const finalImageUrl = useGenStore(state => state.homeImageUrl);
+    const isHydrated = useGenStore(state => state.isHydrated);
+
+    const setPrompt = useGenStore(state => state.setHomePrompt);
+    const setCurrentMode = useGenStore(state => state.setHomeMode); 
+    const setSelectedModelId = useGenStore(state => state.setHomeModelId);
+    const setFinalImageUrl = useGenStore(state => state.setHomeImageUrl);
+    const clearHomeState = useGenStore(state => state.clearHomeState);
 
     // 用于接收上传成功的图片url
     const handleImageUpdate = useCallback((url: string | null) => {
         setFinalImageUrl(url);
-    }, []);
-
-    // 用于切换AI模型,初始值通过函数获取默认agent的模型
-    const [selectedModelId, setSelectedModelId] = useState<ModelId>(getDefaultModelIdByMode("agent"));
+    }, [setFinalImageUrl]);
 
 
     // 处理模式切换
     const handleModeChange = useCallback((mode: ModeType) => {
         setCurrentMode(mode);
-        // 自动将 selectedModelId 重置为当前模式的默认模型
-        const defaultModel = getDefaultModelIdByMode(mode);
-        setSelectedModelId(defaultModel);
-        console.log("切换到模式:", mode,"当前模型为：",defaultModel);
+        console.log("切换到模式:", currentMode,"当前模型为：",selectedModelId);
     }, []);
 
     // 渲染不同模式下的输出提示
@@ -133,12 +136,21 @@ export default function HomePage() {
         if (finalImageUrl) {
             params.append('imageUrl', finalImageUrl);
         }
-        console.log("发送的路由:",'prompt', trimmedPrompt,'mode', currentMode,'imageUrl', finalImageUrl,'selectedModel.id')
+        console.log("发送的路由:", 'prompt', trimmedPrompt, 'mode', currentMode, 'imageUrl', finalImageUrl, 'selectedModel.id')
+        clearHomeState();
         // 使用 Next.js 的路由跳转，传递 prompt
         router.push(`/generate?${params.toString()}`);
     };
 
-
+    // 水合状态的加载
+    if (!isHydrated) {
+        // 只有当 isHydrated 为 false 时，显示加载状态
+        return (
+            <div className="flex items-center justify-center min-h-screen">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
+            </div>
+        );
+    }
 
     return (
         // 整个页面的背景：更柔和的渐变
@@ -183,7 +195,7 @@ export default function HomePage() {
                         <div className="aspect-square w-32 h-40 min-w-[128px] rounded-2xl ">
                             <FloatingFileUploadBox
                                 onImageUploaded={handleImageUpdate}
-                                initialImageUrl={null}
+                                initialImageUrl={finalImageUrl}
                                 size={140}
                             />
                         </div>

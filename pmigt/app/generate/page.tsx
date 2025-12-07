@@ -30,6 +30,7 @@ import { ModeType } from "@/components/ModeTabs";
 import { MediaPreviewPanel } from "@/components/chat/MediaPreviewPanel";
 import { FloatingFileUploadBox } from "@/components/FloatingFileUploadBox";
 import { useRouter } from 'next/navigation';
+import { useGenStore } from "@/src/store/useGenStore";
 
 export default function GeneratePage() {
     const router = useRouter();
@@ -54,11 +55,12 @@ export default function GeneratePage() {
     const isImageGenerationMode = useMemo(() => currentMode === "image", [currentMode]);
     const isVideoGenerationMode = useMemo(() => currentMode === "video", [currentMode]);
 
-    // 获取userId
-    const { userId, loading } = useUser();
+    // 获取全局状态
+    const userId = useGenStore(state => state.userId);//userId
+    const messages = useGenStore(state => state.messages);//存储的当前会话的历史消息
+    const setMessages = useGenStore(state => state.setMessages);
+    const addMessage = useGenStore(state => state.addMessage);
 
-    // 存储当前会话的消息数组
-    const [messages, setMessages] = useState<UIMessage[]>([]);
     // 存储输入框内容
     const [input, setInput] = useState(urlPrompt);
 
@@ -364,7 +366,6 @@ export default function GeneratePage() {
                 } catch (e) {
                     console.error("JSON解析失败:", result.content);
                     finalResponseText = "AI 返回内容格式错误";
-                    replacePlaceholderWithFinalMessage(finalResponseText,generatedMediaUrl );
                     return;
                 }
                 finalResponseText = formatAIMarketingText(finalParsedData);

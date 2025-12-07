@@ -16,7 +16,7 @@ export const useFileUploader = () => {
     const { userId, loading } = useUser();
 
     const uploadFileToSupabase = useCallback(async (file: File): Promise<string | null> => {
-        console.log("进入上传图片函数：", userId, loading);
+        console.log("进入上传图片函数")
         if (loading) {
             toast.warning("会话初始化中...", { 
                 description: "请等待页面加载完成后再尝试上传。",

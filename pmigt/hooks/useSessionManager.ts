@@ -1,10 +1,9 @@
 "use client";
 
 import { useState, useEffect, useCallback } from 'react';
-import { UISession } from '@/src/types/index'; 
+import { UIMessage, UISession } from '@/src/types/index'; 
+import { useGenStore } from '@/src/store/useGenStore';
 
-// 导入 API 调用函数
-const API_URL = '/api/sessions'; 
 
 interface SessionManagerHook {
     /** 当前用户的会话列表 */
@@ -34,54 +33,18 @@ export const useSessionManager = (
     userId: string | null,
     onSessionContentReset: () => void
 ): SessionManagerHook => {
-    const [sessions, setSessions] = useState<UISession[]>([]);
-    const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
-    const [isSessionLoading, setIsSessionLoading] = useState(false);
-    const [sessionError, setSessionError] = useState<string | null>(null);
+    const sessions = useGenStore(state => state.sessions);
+    const setSessions = useGenStore(state => state.setSessions);
+    const activeSessionId = useGenStore(state => state.activeSessionId);
+    const setActiveSessionId = useGenStore(state => state.setActiveSessionId);
+    const isSessionLoading = useGenStore(state => state.isSessionLoading);
+    const setIsSessionLoading = useGenStore(state => state.setIsSessionLoading);
+    const sessionError = useGenStore(state => state.sessionError);
+    const setSessionError = useGenStore(state => state.setSessionError);
 
-    // 会话列表获取逻辑 
-    const fetchSessions = useCallback(async () => {
-        if (!userId) return; // 没有用户 ID 不进行加载
+    const setMessages = useGenStore(state => state.setMessages);
+    const clearMessages = useGenStore(state => state.clearMessages);
 
-        setIsSessionLoading(true);
-        setSessionError(null);
-
-        try {
-            const response = await fetch(API_URL, {
-                method: 'GET',
-            });
-
-            const result = await response.json();
-
-            if (!response.ok || !result.success) {
-                const errorMsg = result.error || `HTTP 错误: ${response.status}`;
-                throw new Error(errorMsg);
-            }
-
-            const loadedSessions: UISession[] = result.data;
-            setSessions(loadedSessions);
-            console.log("已获得该用户的会话列表:",loadedSessions)
-
-            // 首次加载成功后，如果列表不为空且没有激活会话，则自动激活第一个
-            if (loadedSessions.length > 0 && activeSessionId === null) {
-                // 通常只设置列表，让组件决定何时加载消息。
-                // 暂时不自动设置 activeSessionId 以保持灵活。
-            }
-
-        } catch (error) {
-            console.error("加载会话列表失败:", error);
-            setSessionError(error instanceof Error ? error.message : "未知服务器错误");
-        } finally {
-            setIsSessionLoading(false);
-        }
-    }, [userId, activeSessionId]);
-
-    // 在用户 ID 确定后，加载会话列表
-    useEffect(() => {
-        if (userId) {
-            fetchSessions();
-        }
-    }, [userId, fetchSessions]);
 
     /**
      * 获取特定会话的历史消息记录
@@ -151,8 +114,15 @@ export const useSessionManager = (
     // 加载会话消息
     const loadSessionMessages = useCallback(async (sessionId: string) => {
         const messages = await fetchHistoryMessages(sessionId);
+        if (messages) {
+            setMessages(messages as UIMessage[]);
+        }else {
+            // 如果加载失败，清空消息并设置错误
+            setSessionError(`无法加载会话 ${sessionId} 的历史消息。`);
+            clearMessages();
+        }
         return messages;
-    }, []);
+    }, [fetchHistoryMessages, setMessages, setSessionError, clearMessages]);
 
     return {
         sessions,
