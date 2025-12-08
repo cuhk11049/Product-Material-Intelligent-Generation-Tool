@@ -3,6 +3,7 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 import { UISession,UIMessage } from '../types';
 import { ModeType } from '@/components/ModeTabs';
 import { getDefaultModelIdByMode, ModelId } from '../types/model';
+import { CUSTOM_STYLE_ID, DEFAULT_STYLE, StyleOption } from '@/src/constants/styles';
 
 // 定义 GenState 接口 
 interface GenState {
@@ -83,6 +84,12 @@ interface GenState {
         lastMessageId: string
     ) => void;
 
+    // 样式选择相关
+    currentStyle: StyleOption;
+    setCurrentStyle: (style: StyleOption) => void;
+    customStyleUrl: string | null; 
+    setCustomStyleUrl: (url: string | null) => void;
+
     // 水合状态
     //判断 Zustand Store 是否已从 localStorage 恢复数据 (客户端水合完成) 
     isHydrated: boolean;
@@ -92,7 +99,7 @@ interface GenState {
 // 创建 Store
 export const useGenStore = create<GenState>()(
   persist(
-    (set) => ({
+    (set,get) => ({
         // 初始状态 
         input: '',
         isLoading: false,
@@ -109,6 +116,7 @@ export const useGenStore = create<GenState>()(
         currentSessionImageUrl: null, 
         lastUserPrompt: null,
         lastAIMessageId: null,
+
 
 
         // Actions
@@ -244,6 +252,21 @@ export const useGenStore = create<GenState>()(
             };
         }),
 
+        // 样式选择相关
+        currentStyle: DEFAULT_STYLE,
+        setCurrentStyle: (style) => set({ currentStyle: style }),
+        customStyleUrl: null, 
+    
+        // 更新自定义图片
+        setCustomStyleUrl: (url) => {
+            set({ customStyleUrl: url });
+            
+            // 如果清除 URL (url === null)，且当前选中自定义风格，则自动切换回 DEFAULT_STYLE
+            if (!url && get().currentStyle.id === CUSTOM_STYLE_ID) {
+                set({ currentStyle: DEFAULT_STYLE });
+            }
+        },
+        
         // 水合状态
         isHydrated: false, 
         setHydrated: (isHydrated) => set({ isHydrated }),

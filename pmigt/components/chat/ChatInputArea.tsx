@@ -6,6 +6,8 @@ import { Send, Loader2,MessageSquare } from "lucide-react";
 import { UISession } from '@/src/types';
 import { SessionDrawer } from './SessionDrawer';
 import { GenerateModeTabs, ModeType } from './GenerateModeTabs';
+import { StyleOption } from '@/src/constants/styles';
+import {StyleSelector} from '@/components/chat/StyleSelector';
 
 interface ChatInputAreaProps {
     // 状态
@@ -13,8 +15,10 @@ interface ChatInputAreaProps {
     isLoading: boolean;
     currentSessionImageUrl: string | null;
     currentMode: ModeType;
+    currentStyle?: StyleOption;
     
     // Handlers
+    setCurrentStyle?: (style: StyleOption) => void;
     setInput: (value: string) => void;
     handleSend: () => Promise<void>;
     handleModeChange: (mode: ModeType) => void;//处理模式切换
@@ -29,7 +33,8 @@ export const ChatInputArea: React.FC<ChatInputAreaProps> = (props) => {
     const { 
         input, isLoading, currentSessionImageUrl, 
         setInput, handleSend, 
-        currentMode,handleModeChange,
+        currentMode, handleModeChange,
+        currentStyle, setCurrentStyle,
         sessions, activeSessionId, onSessionChange//用于会话列表
     } = props;
     
@@ -38,12 +43,22 @@ export const ChatInputArea: React.FC<ChatInputAreaProps> = (props) => {
     const [drawerOpen, setDrawerOpen] = useState(false);
 
     // 确定发送按钮是否禁用
-    const isSendDisabled = isLoading || (!input.trim() && !currentSessionImageUrl );
+    const isSendDisabled = isLoading || (!input.trim() && !currentSessionImageUrl);
+    
+    const isImageGenerationMode = currentMode === 'image';
 
 
     return (
         <div>
             <div className="p-4 bg-white flex flex-col items-center gap-2">
+                {isImageGenerationMode && currentStyle && setCurrentStyle && (
+                    <div className="w-full max-w-4xl px-1 animate-in fade-in slide-in-from-bottom-1 duration-300">
+                        <StyleSelector 
+                            selectedStyleId={currentStyle.id}
+                            onSelect={setCurrentStyle}
+                        />
+                    </div>
+                )}
                 {/* 输入框和按钮组 */}
                 <div className="flex w-full max-w-4xl gap-2">
 

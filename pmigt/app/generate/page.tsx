@@ -56,6 +56,9 @@ export default function GeneratePage() {
     const isHydrated = useGenStore(state => state.isHydrated);
     const replacePlaceholder = useGenStore(state => state.replacePlaceholder);
     const processNewRequest = useGenStore(state => state.processNewRequest);
+    // 图片模式选择的风格
+    const currentStyle = useGenStore(state => state.currentStyle);
+    const setCurrentStyle = useGenStore(state => state.setCurrentStyle);
 
     // 存储输入框内容
     const input = useGenStore(state => state.genPrompt);
@@ -313,8 +316,8 @@ export default function GeneratePage() {
         console.log("发送聊天请求，bodyData JSON:", JSON.stringify(bodyData, null, 2));
 
 
-        if (finalMode==="image") {
-            bodyData.styleImageUrl = "https://ifrctixzjfnynncamthq.supabase.co/storage/v1/object/public/images/68fde908-0686-4b14-a49a-82014dce13a4/cef0470bbe57eb8159bfc3bd6e780052.jpg";
+        if (finalMode === "image") {
+            bodyData.styleImageUrl = currentStyle.imageUrl;
         }
 
         let finalResponseText = '';
@@ -444,7 +447,7 @@ export default function GeneratePage() {
         }
 
     }, [input,  currentSessionImageUrl,  isImageFreshlyUploaded,selectedModelId,messages,
-     activeSessionId, isImageGenerationMode, userId, addSession
+     activeSessionId, isImageGenerationMode, userId, addSession,currentStyle,
     ]);
 
 
@@ -602,6 +605,8 @@ export default function GeneratePage() {
                 sessions={sessions}
                 activeSessionId={activeSessionId}
                 onSessionChange={handleSessionChange}
+                currentStyle={currentStyle}
+                setCurrentStyle={setCurrentStyle}
 
                 handleSend={handleSend}
                 handleModeChange={handleModeChange}
