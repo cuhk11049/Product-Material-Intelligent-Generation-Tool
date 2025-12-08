@@ -154,7 +154,7 @@ export const AIMessageCard: React.FC<AIMessageCardProps> = ({ message ,onMediaCl
     if (!ImageCard && !VideoCard) {
         return (
             <div className="flex items-start space-x-4">
-                <div className="flex flex-col flex-1 min-w-0 max-w-2xl">
+                <div className="flex flex-col flex-1 min-w-0 max-w-xl">
                     <div
                         className="
                             p-4

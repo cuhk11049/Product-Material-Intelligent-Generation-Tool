@@ -36,7 +36,7 @@ export const GenerateModeTabs: React.FC<ModeTabsProps> = ({ currentMode, setMode
     // 渐变颜色
     const indicatorGradient = "bg-gradient-to-r from-blue-600 to-purple-600 shadow-lg shadow-blue-500/50";
 
-    // --- 点击外部关闭下拉菜单的 Hook ---
+    // 点击外部关闭下拉菜单的 Hook 
     useEffect(() => {
         function handleClickOutside(event: MouseEvent) {
             if (containerRef.current && !containerRef.current.contains(event.target as Node)) {

@@ -235,13 +235,14 @@ export default function GeneratePage() {
         isFreshUpload?: boolean,
         isRegenerate: boolean = false,
         deleteMessageId?: string,
-        overrideMode?:"agent" | "image" | "video"
+        overrideMode?: "agent" | "image" | "video",
+        overrideModelId?: string
     ) => {
         const trimmedInput = overrideInput ?? input.trim();
         const finalImage = overrideImageUrl ?? currentSessionImageUrl;
         const finalIsFresh = isFreshUpload ?? isImageFreshlyUploaded;
         // 让重新生成优先选择模式
-        const finalMode = overrideMode || homeMode || currentMode;
+        const finalMode = overrideMode?? currentMode;
         const finalModelId = isRegenerate ? getDefaultModelIdByMode(finalMode) : selectedModelId;
         if (isLoading  || isHistoryLoading) return;
 
@@ -310,7 +311,7 @@ export default function GeneratePage() {
             saveImageUrl: finalIsFresh ? finalImage : undefined, 
             isRegenerate: isRegenerate,
             deleteMessageId: deleteMessageId, 
-            modelId: homeModelId?homeModelId:finalModelId,
+            modelId: overrideModelId??finalModelId,
         };
 
         console.log("发送聊天请求，bodyData JSON:", JSON.stringify(bodyData, null, 2));
@@ -520,7 +521,7 @@ export default function GeneratePage() {
             // 等待 handleSend 完成 
             try {
                 // handleSend 内部应该包含 API fetch 并返回 Promise
-                await handleSend(homePrompt, homeImageUrl, true);
+                await handleSend(homePrompt, homeImageUrl, true,false,undefined,homeMode,homeModelId);
                 
                 // 成功完成后清空 home 状态
                 clearHomeState(); 

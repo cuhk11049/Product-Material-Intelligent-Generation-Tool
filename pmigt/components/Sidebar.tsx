@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { Lightbulb, Folder, Settings, Aperture } from 'lucide-react';
+import { Lightbulb, Folder, Aperture } from 'lucide-react';
 import AI_avatar from './chat/AI_avatar';
 
 // 导航链接数据
@@ -26,11 +26,6 @@ export function Sidebar() {
                     </Link>
                 ))}
             </nav>
-
-            {/* 底部工具 */}
-            <div className="mt-auto flex flex-col space-y-4 pt-4">
-                <Settings className="w-6 h-6 text-gray-500 hover:text-gray-700 cursor-pointer" />
-            </div>
         </div>
     );
 }

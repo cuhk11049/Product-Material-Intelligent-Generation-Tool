@@ -44,7 +44,7 @@ const cardVariants = {
 
 const InspirationMasonry: React.FC<InspirationMasonryProps> = ({
   images = defaultImages,
-  title = "发现即时灵感",
+  title = "",
   subtitle,
   showHeader = true,
   className,
@@ -69,14 +69,27 @@ const InspirationMasonry: React.FC<InspirationMasonryProps> = ({
       variants={containerVariants}
     >
       {showHeader && (
-        <div className="mb-8">
+        <div className="mb-8 text-center">
           <HeaderH2
-            className="text-3xl font-extrabold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-blue-600 via-violet-600 to-fuchsia-600"
+            className="mx-auto max-w-2xl text-[28px] md:text-[32px] font-semibold tracking-tight text-neutral-900 dark:text-neutral-100"
             {...(animated ? { initial: { opacity: 0, y: 10 }, whileInView: { opacity: 1, y: 0 }, transition: { duration: 0.5 } } : {})}
           >
             {title}
           </HeaderH2>
-          {subtitle && <p className="mt-2 text-gray-500">{subtitle}</p>}
+          {subtitle && (
+            <p className="mt-2 text-sm md:text-base text-neutral-500 dark:text-neutral-400 max-w-2xl mx-auto">
+              {subtitle}
+            </p>
+          )}
+
+          {/* 下引导：极简圆形容器 + 轻缓下浮 */}
+          <div className="mt-6 flex justify-center" aria-hidden>
+            <div className="nudge-down inline-flex items-center justify-center rounded-full p-2 ring-1 ring-neutral-200/80 dark:ring-neutral-700/60">
+              <svg viewBox="0 0 24 24" className="h-4 w-4 text-neutral-400 dark:text-neutral-500" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M6 9l6 6 6-6" />
+              </svg>
+            </div>
+          </div>
         </div>
       )}
 
@@ -86,9 +99,9 @@ const InspirationMasonry: React.FC<InspirationMasonryProps> = ({
             key={item.src}
             className={clsx(
               "group relative rounded-2xl overflow-hidden",
-              "bg-white/80 backdrop-blur-sm border border-white/60",
-              "shadow-[0_10px_24px_rgba(0,0,0,0.06)] hover:shadow-[0_18px_40px_rgba(45,91,255,0.18)]",
-              "hover:[box-shadow:0_0_0_1px_rgba(99,102,241,0.35),0_18px_40px_rgba(99,102,241,0.15)]"
+              "bg-white/80 dark:bg-neutral-900/40 backdrop-blur-sm border border-neutral-200/60 dark:border-neutral-700/60",
+              "shadow-[0_10px_24px_rgba(0,0,0,0.06)] hover:shadow-[0_18px_40px_rgba(0,0,0,0.14)]",
+              "hover:[box-shadow:0_0_0_1px_rgba(17,24,39,0.12),0_18px_40px_rgba(0,0,0,0.14)]"
             )}
             variants={cardVariants}
             whileHover={animated ? { scale: 1.01 } : undefined}
@@ -101,15 +114,12 @@ const InspirationMasonry: React.FC<InspirationMasonryProps> = ({
                 referrerPolicy="no-referrer"
                 className="w-full h-full object-cover transition duration-500 group-hover:scale-[1.03]"
               />
-              <div className="absolute inset-0 ring-1 ring-black/5" />
-              <div className="absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-black/50 to-transparent" />
-
-              {/* 闪光扫过 */}
+              <div className="absolute inset-0 ring-1 ring-black/5 dark:ring-white/5" />
+              <div className="absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-black/40 to-transparent dark:from-black/50" />
               <div className="pointer-events-none absolute inset-0 opacity-0 group-hover:opacity-100 transition duration-500">
                 <div className="absolute -inset-10 -skew-x-12 bg-gradient-to-r from-transparent via-white/20 to-transparent animate-[shine_1.2s_ease-in-out]" />
               </div>
             </div>
-
           </Card>
         ))}
       </Grid>
@@ -119,6 +129,11 @@ const InspirationMasonry: React.FC<InspirationMasonryProps> = ({
           0% { transform: translateX(-120%) skewX(-12deg); }
           100% { transform: translateX(220%) skewX(-12deg); }
         }
+        @keyframes nudge-down {
+          0%, 100% { transform: translateY(0); opacity: 0.7; }
+          50%      { transform: translateY(6px); opacity: 1; }
+        }
+        .nudge-down { animation: nudge-down 1.8s ease-in-out infinite; }
       `}</style>
     </Section>
   );
