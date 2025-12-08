@@ -15,6 +15,7 @@ import { getModelsByMode } from '@/src/types/model';
 import { ModelSelector } from '@/components/ModelSelector';
 import { useInitialSessionLoader } from '@/hooks/useInitialSessionLoader';
 import { useGenStore } from '@/src/store/useGenStore';
+import InspirationMasonry from '@/components/InspirationMasonry';
 
 // 模拟素材数据，添加标题和高度变化
 const demoInspiration = [
@@ -245,21 +246,7 @@ export default function HomePage() {
 
                 {/* 瀑布流区 */}
                 <div className="py-10">
-                    <h2 className="text-3xl font-bold mb-8 text-gray-800">
-                        发现即时灵感
-                    </h2>
-                    
-                    {/* 瀑布流容器：使用 columns 布局 */}
-                    <div className="columns-2 md:columns-3 lg:columns-4 gap-6">
-                        {demoInspiration.map((item, i) => (
-                            <InspirationCard
-                                key={i}
-                                src={item.src}
-                                title={item.title}
-                                height={item.height}
-                            />
-                        ))}
-                    </div>
+                    <InspirationMasonry className="max-w-6xl" />
                 </div>
             </div>
         </div>
