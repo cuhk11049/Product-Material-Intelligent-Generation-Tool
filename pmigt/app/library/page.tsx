@@ -2,8 +2,29 @@
 
 import { useState, useEffect } from "react";
 import { Asset } from "@/src/types/index";
-import { Loader2, Image as ImageIcon, Video, Download, Copy, Eye } from "lucide-react";
+import { Image as ImageIcon, Video, Download, Copy, Eye } from "lucide-react";
 import { toast } from "sonner";
+
+// 这个组件模仿了真实卡片的布局结构
+const SkeletonCard = () => (
+  <div className="bg-white rounded-xl overflow-hidden border border-gray-100 shadow-sm">
+    {/* 模拟图片区域 (灰色背景 + 呼吸动画) */}
+    <div className="aspect-square bg-gray-200 animate-pulse relative">
+      <div className="absolute inset-0 flex items-center justify-center">
+        {/* 可选：中间放个淡色的图标占位 */}
+        <ImageIcon className="w-8 h-8 text-gray-300 opacity-50" />
+      </div>
+    </div>
+    
+    {/* 模拟文字区域 */}
+    <div className="p-3 space-y-2">
+      {/* 模拟标题 (长度随机一点更自然，这里固定70%) */}
+      <div className="h-4 bg-gray-200 rounded w-3/4 animate-pulse" />
+      {/* 模拟日期 */}
+      <div className="h-3 bg-gray-100 rounded w-1/3 animate-pulse" />
+    </div>
+  </div>
+);
 
 export default function LibraryPage() {
   const [loading, setLoading] = useState(true);
@@ -154,20 +175,24 @@ export default function LibraryPage() {
       <main className="flex-1 overflow-y-auto p-8">
         
         {loading ? (
-          <div className="flex h-full items-center justify-center text-gray-400">
-            <Loader2 className="w-8 h-8 animate-spin" />
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
+            {/* 生成 10 个骨架卡片占位 */}
+            {Array.from({ length: 10 }).map((_, i) => (
+              <SkeletonCard key={i} />
+            ))}
           </div>
         ) : filteredAssets.length === 0 ? (
           // 空状态
-          <div className="flex flex-col items-center justify-center h-64 text-gray-400">
-            <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-4">
-              <ImageIcon className="w-8 h-8 opacity-50" />
+          <div className="flex flex-col items-center justify-center h-full text-gray-400 min-h-[400px]">
+            <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mb-4 animate-in fade-in zoom-in duration-500">
+              <ImageIcon className="w-10 h-10 opacity-40" />
             </div>
-            <p>暂无相关素材，快去生成一个吧！</p>
+            <p className="text-gray-500 font-medium">暂无相关素材</p>
+            <p className="text-sm text-gray-400 mt-1">快去生成你的第一个创意吧！</p>
           </div>
         ) : (
           // 网格列表
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
             {filteredAssets.map((asset) => (
               <div 
                 key={asset.id} 
@@ -201,6 +226,7 @@ export default function LibraryPage() {
                       src={asset.url} 
                       alt={asset.title} 
                       className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                      loading="lazy"
                     />
                   )}
                   
