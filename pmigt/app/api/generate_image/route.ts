@@ -5,6 +5,7 @@ import { createClient } from '@/utils/supabase/server';
 import { getModelEndpointId } from '@/src/types/model';
 import sharp from 'sharp';
 import path from 'path';
+import fs from 'fs';
 
 const client = new OpenAI({
   apiKey: process.env.VOLC_API_KEY,
@@ -136,59 +137,56 @@ export async function POST(req: Request) {
     let finalBuffer: Buffer;
     
     try {
-      // 定义水印文字
-      const fontPath = path.resolve(process.cwd(), 'assets/fonts/NotoSansSC-VariableFont_wght.ttf');
+      // 1. 确定字体路径
+      const fontPath = path.join(process.cwd(), 'public', 'fonts', 'NotoSansSC-Bold.ttf');
       
-      // 2. 读取原始图片元数据
+      // 检查文件是否存在
+      if (!fs.existsSync(fontPath)) {
+         console.error(`❌ 字体文件未找到，路径: ${fontPath}`);
+         throw new Error("Font file missing");
+      }
+
       const image = sharp(originalBuffer);
       const metadata = await image.metadata();
       const width = metadata.width || 2048;
       
-      // 3. 计算字体大小 (例如：宽度的 3%)
-      const fontSize = Math.floor(width * 0.03); 
+      // 2. 计算字体大小
+      // Pango 的 size 属性单位是 "1/1024 点"，所以我们需要把像素值 * 1024
+      const fontSizePx = Math.floor(width * 0.03); 
+      const pangoSize = fontSizePx * 1024; 
       const watermarkText = "抖音电商前端训练营";
 
-      // 创建 SVG 水印层
-      // 解释：
-      // 1. viewBox 和 width/height 匹配原图大小
-      // 2. text-shadow 用于在深色或浅色背景上都能看清文字（增加黑色阴影）
-      // 3. x, y 坐标配合 text-anchor="end" 实现右对齐
+      // 3. 执行合成
       finalBuffer = await image
         .composite([
           {
             input: {
               text: {
-                // Pango Markup 语法:
-                // <span font_desc="..."> 用于设置字号
-                // foreground 用于设置颜色 (rgba)
-                text: `<span foreground="rgba(255,255,255,0.8)" font_desc="${fontSize}px">${watermarkText}</span>`,
+                // 【关键修复 1】颜色必须使用 Hex 格式 (#RRGGBBAA)，Pango 不支持 rgba() 函数
+                // #FFFFFFCC -> 白色 (FFFFFF) + 80%透明度 (CC)
+                // 【关键修复 2】直接在 span 里指定 size，避免外部冲突
+                text: `<span foreground="#FFFFFFCC" size="${pangoSize}">${watermarkText}</span>`,
                 
-                // 【核心修改】这里直接传入字体文件路径，Sharp 会自动加载，无需系统安装
-                fontfile: fontPath, 
+                fontfile: fontPath,     // 强制加载字体文件
+                font: 'Noto Sans SC',   // 字体族名（作为后备）
                 
-                // 设置文本区域宽度（防止文字太长超出）
-                width: Math.floor(width * 0.5), 
-                
-                // 对齐方式
-                align: 'right', 
-                
-                // 开启 RGBA 支持以显示半透明颜色
-                rgba: true 
+                width: Math.floor(width * 0.8), // 文本容器宽度
+                align: 'right',         // 文字右对齐
+                rgba: true              // 允许 alpha 通道
               }
             },
-            // 定位：东南角 (右下角)
-            gravity: 'southeast', 
+            gravity: 'southeast', // 放在右下角
           },
         ])
         .toBuffer();
         
-       console.log("水印添加成功");
+       console.log("✅ 水印添加成功");
 
     } catch (processError) {
-       console.error("水印添加失败，详细错误:", processError);
-       // 如果本地开发时报错，请检查 assets/fonts 文件夹是否存在以及文件名是否完全一致
+       console.error("❌ 水印添加失败，详细错误:", processError);
        finalBuffer = originalBuffer; 
     }
+
 
 
     const fileName = `images/${userId}/${Date.now()}_generated.${extension}`;
