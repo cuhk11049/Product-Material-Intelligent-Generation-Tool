@@ -23,10 +23,9 @@ export const useInitialSessionLoader = () => {
     // 数据获取逻辑 (使用 useCallback 避免重复创建)
     const fetchAndSetSessions = useCallback(async (id: string) => {
         // 如果正在加载，或者 Store 中已经有数据了 (防止重复加载)
-        if (isSessionLoading || sessionsLength > 0) return; 
+        if (isSessionLoading) return; 
 
         setIsSessionLoading(true);
-        console.log("开始加载用户会话列表...");
 
         try {
             const response = await fetch(`${API_URL}?userId=${id}`, {
@@ -40,7 +39,6 @@ export const useInitialSessionLoader = () => {
             
             // 将数据存入持久化的 Zustand Store
             setSessions(loadedSessions);
-            console.log("加载会话列表成功:", loadedSessions);
 
         } catch (error) {
             console.error("加载会话列表失败:", error);
