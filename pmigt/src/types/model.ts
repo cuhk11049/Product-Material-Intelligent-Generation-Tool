@@ -33,13 +33,6 @@ export const ALL_MODELS: AppModel[] = [
         description: '豆包视觉模型'
     },
     { 
-        id: 'doubao-seed-thinking', 
-        name: 'Doubao Seed Thinking', 
-        endpoint: process.env.NEXT_PUBLIC_DOUBAO_SEED_1_6_THINKING_ENDPOINT_ID, 
-        group: 'agent',
-        description: '豆包思维模型'
-    },
-    { 
         id: 'doubao-seed-lite', 
         name: 'Doubao Seed Lite', 
         endpoint: process.env.NEXT_PUBLIC_DOUBAO_SEED_1_6_LITE_ENDPOINT_ID, 

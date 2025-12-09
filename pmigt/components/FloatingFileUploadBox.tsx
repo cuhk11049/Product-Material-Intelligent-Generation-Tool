@@ -117,7 +117,7 @@ export const FloatingFileUploadBox: React.FC<FloatingFileUploadBoxProps> = ({
     // --- 样式计算 ---
 
     // 决定当前显示的图片 (优先显示最终URL，其次是本地预览)
-    const displayImage = finalImageUrl || filePreviewUrl;
+    const displayImage = filePreviewUrl||finalImageUrl ;
 
     // 容器的基础样式
     const containerStyle = size ? { width: size, height: size } : {};

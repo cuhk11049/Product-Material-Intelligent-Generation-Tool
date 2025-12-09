@@ -241,7 +241,7 @@ export default function LibraryPage() {
                           });
                       }
                     }}
-                    // 🟢 修改这里：更安全的暂停逻辑
+                    // 更安全的暂停逻辑
                     onMouseOut={e => {
                         const video = e.currentTarget;
                         video.pause();

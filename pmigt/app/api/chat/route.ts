@@ -145,7 +145,11 @@ export async function POST(req: Request) {
         },
       ],
       temperature: 0.5,
-    });
+      thinking: {
+        "type": "disabled", 
+      }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    }as any);
 
     // 解析完整响应内容
     const accumulatedContent = response.choices[0]?.message?.content || "";
