@@ -7,6 +7,7 @@ import { Upload, X, Loader2, AlertCircle, ImagePlus } from 'lucide-react';
 
 // 导入您提供的 Hook
 import { useFileUploader } from '@/hooks/useFileUploader'; 
+import { proxySupabaseUrl } from '@/utils/supabase/proxySupabase';
 
 interface FloatingFileUploadBoxProps {
     /** 初始图片 URL */
@@ -82,6 +83,7 @@ export const FloatingFileUploadBox: React.FC<FloatingFileUploadBoxProps> = ({
             return;
         }
 
+        console.log("图片预览url:",URL.createObjectURL(file))
         // 本地预览 (立即反馈)
         setUploadedFile(file);
         setFilePreviewUrl(URL.createObjectURL(file));
@@ -164,49 +166,44 @@ export const FloatingFileUploadBox: React.FC<FloatingFileUploadBoxProps> = ({
             />
 
             <AnimatePresence mode='wait'>
-                {/* 正在上传 或正在加载历史会话参考图*/}
-                {(isUploading||loading) && (
-                    <motion.div 
-                        key="uploading"
-                        initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                        className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-white/80 backdrop-blur-sm pointer-events-auto "
-                    >
-                        <Loader2 className="w-8 h-8 text-blue-500 animate-spin mb-2" />
-                        <span className="text-xs font-medium text-blue-600">加载中...</span>
-                    </motion.div>
-                )}
-
-                {/* 显示图片 (成功或预览) */}
-                {displayImage && !isUploading && (
+                {/* 显示图片：无论是否 uploading，都要显示预览图，否则会闪白 */}
+                {displayImage && (
                     <motion.div 
                         key="image"
-                        initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+                        initial={false} 
+                        animate={{ opacity: 1 }}
                         className="absolute inset-0 w-full h-full"
                     >
-                        {/* 图片本体 - Full Cover */}
-                        <img 
-                            src={displayImage} 
-                            alt="Uploaded content" 
+                        {/* 图片：始终显示 */}
+                        <img
+                            src={proxySupabaseUrl(displayImage)}
+                            alt="Uploaded content"
                             className="w-full h-full object-cover rounded-xl"
                         />
 
-                        {/* 悬停遮罩层 + 删除按钮 */}
-                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center justify-center">
-                            {/* 无图能删除 */}
-                            {!finalImageUrl && (
-                                <button
-                                    onClick={clearFile}
-                                    className="p-2 bg-white rounded-full shadow-lg hover:bg-red-50 hover:text-red-600 transition-colors transform hover:scale-110"
-                                    title="移除图片"
-                                >
-                                    <X className="w-5 h-5" />
-                                </button>
-                            )}
-                            {/* 有图只能替换 */}
-                            {finalImageUrl && (
-                                <span className="text-white text-sm font-medium">点击区域替换图片</span>
-                            )}
-                        </div>
+                        {/* ⛔ 上传中遮罩层（覆盖在预览图上方，不闪白） */}
+                        {isUploading && (
+                            <div className="absolute inset-0 bg-black/40 backdrop-blur-sm flex flex-col items-center justify-center z-20">
+                                <Loader2 className="w-8 h-8 text-white animate-spin mb-2" />
+                                <span className="text-xs text-white/80">上传中...</span>
+                            </div>
+                        )}
+
+                        {/* 悬停遮罩层 + 删除按钮（仅上传完成后显示） */}
+                        {!isUploading && (
+                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center justify-center">
+                                {!finalImageUrl ? (
+                                    <button
+                                        onClick={clearFile}
+                                        className="p-2 bg-white rounded-full shadow-lg hover:bg-red-50 hover:text-red-600 transition-colors transform hover:scale-110"
+                                    >
+                                        <X className="w-5 h-5" />
+                                    </button>
+                                ) : (
+                                    <span className="text-white text-sm font-medium">点击区域替换图片</span>
+                                )}
+                            </div>
+                        )}
                     </motion.div>
                 )}
 

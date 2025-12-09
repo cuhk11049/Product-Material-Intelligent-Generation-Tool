@@ -3,8 +3,9 @@ import { createClient } from '@/utils/supabase/client';
 import { v4 as uuidv4 } from 'uuid';
 import { useUser } from "@/components/user/UserProvider";
 import { toast } from 'sonner';
-// ⭐️ 引入图片压缩库
+// 引入图片压缩库
 import imageCompression from 'browser-image-compression'; 
+import { proxySupabaseUrl } from '@/utils/supabase/proxySupabase';
 
 const SUPABASE_BUCKET_NAME = "images"; 
 // 确保客户端 Supabase 实例正确初始化
@@ -54,7 +55,7 @@ export const useFileUploader = () => {
         setUploadError(null);
         setUploadProgress(0);
         
-        // --- 2. 压缩图片逻辑 (核心优化部分) ---
+        // 压缩图片逻辑 
         let fileToUpload = file;
         
         try {
@@ -88,7 +89,7 @@ export const useFileUploader = () => {
             fileToUpload = file; 
         }
 
-        // --- 3. Supabase 上传逻辑 ---
+        // Supabase 上传逻辑 
         try {
             // 使用优化后的 fileToUpload 进行上传
             const fileExt = fileToUpload.name.split(".").pop();

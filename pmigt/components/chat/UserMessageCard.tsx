@@ -1,6 +1,7 @@
 // 用户消息卡片
 import React, { useState } from 'react';
 import { UIMessage } from '@/src/types/index'; 
+import { proxySupabaseUrl } from '@/utils/supabase/proxySupabase';
 
 interface UserMessageCardProps {
     message: UIMessage;
@@ -35,7 +36,7 @@ export const UserMessageCard: React.FC<UserMessageCardProps> = ({ message }) => 
             {imageUrl && (
                 <div className="inline-block max-w-[60%] rounded-xl overflow-hidden shadow">
                     <img
-                        src={imageUrl}
+                        src={proxySupabaseUrl(imageUrl)}
                         alt="用户图片"
                         onLoad={() => setImageLoaded(true)}
                         onError={() => setImageLoaded(true)}

@@ -2,6 +2,7 @@
 
 import React, { ReactNode } from "react";
 import { Image as ImageIcon, Video as VideoIcon, Loader2, Sparkles, ArrowDownCircle } from "lucide-react";
+import { proxySupabaseUrl } from "@/utils/supabase/proxySupabase";
 
 interface MediaPreviewPanelProps {
   /** 生成中的 loading 状态 */
@@ -141,7 +142,7 @@ export const MediaPreviewPanel: React.FC<MediaPreviewPanelProps> = ({
                     {!isLoading && !hasVideo && hasImage && (
                         <div className="h-full w-auto aspect-square max-w-[280px] max-h-[280px] rounded-xl overflow-hidden shadow-sm border border-gray-200/50">
                             <img
-                                src={imageUrl!}
+                                src={proxySupabaseUrl(imageUrl)!}
                                 alt="Result"
                                 className="w-full h-full object-cover"
                             />

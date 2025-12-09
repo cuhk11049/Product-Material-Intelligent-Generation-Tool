@@ -4,6 +4,7 @@ import { Plus, Loader2, RefreshCw } from 'lucide-react';
 import { useFileUploader } from '@/hooks/useFileUploader';
 import { useGenStore } from '@/src/store/useGenStore';
 import { useEffect } from 'react';
+import { proxySupabaseUrl } from '@/utils/supabase/proxySupabase';
 
 interface StyleSelectorProps {
   selectedStyleId: string;
@@ -125,7 +126,7 @@ export const StyleSelector: React.FC<StyleSelectorProps> = ({ selectedStyleId, o
             >
               <div className="aspect-square relative bg-gray-100">
                 <img 
-                  src={style.imageUrl} 
+                  src={proxySupabaseUrl(style.imageUrl)} 
                   alt={style.name} 
                   className={`object-cover w-full h-full transition-opacity ${isSelected ? 'opacity-100' : 'opacity-80 group-hover:opacity-100'}`}
                 />
@@ -146,62 +147,74 @@ export const StyleSelector: React.FC<StyleSelectorProps> = ({ selectedStyleId, o
 
         {/* 渲染【自定义上传】卡片 */}
         <div
-            onClick={handleCustomCardClick}
-            className={`
-                relative flex-shrink-0 w-24 cursor-pointer group flex flex-col
-                rounded-lg overflow-hidden border-2 border-dashed transition-all duration-200
-                ${isCustomSelected 
-                  ? 'border-indigo-500 bg-indigo-50' 
-                  : 'border-gray-300 bg-gray-50 hover:bg-gray-100 hover:border-gray-400'
-                }
-            `}
+          onClick={handleCustomCardClick}
+          className={`
+            relative flex-shrink-0 w-24 cursor-pointer group flex flex-col
+            rounded-lg overflow-hidden border-2 border-dashed transition-all duration-200
+            ${isCustomSelected 
+              ? 'border-indigo-500 bg-indigo-50' 
+              : 'border-gray-300 bg-gray-50 hover:bg-gray-100 hover:border-gray-400'
+            }
+          `}
         >
-            <div className="aspect-square relative flex items-center justify-center">
-                {isUploading ? (
-                    <Loader2 className="w-6 h-6 text-indigo-500 animate-spin" />
-                ) : (
-                    hasCustomImage ? (
-                        <>
-                            <img src={customStyleUrl!} className="w-full h-full aspect-square object-cover" />
-                            
-                            {/* 选中状态下的遮罩 */}
-                            {isCustomSelected && (
-                                <div className="absolute inset-0 bg-indigo-500/20 flex items-center justify-center backdrop-blur-[1px] ">
-                                    <div className="bg-indigo-500 text-white rounded-full p-1 shadow-sm">
-                                        <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
-                                    </div>
-                                </div>
-                            )}
+          <div className="aspect-square relative flex items-center justify-center overflow-hidden">
 
-                            <div 
-                                onClick={handleReplaceClick}
-                                className="absolute top-1 right-1 bg-black/50 hover:bg-black/70 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
-                                title="更换图片"
-                            >
-                                <RefreshCw className="w-3 h-3" />
-                            </div>
-                        </>
-                    ) : (
-                        // 没有图才显示加号
-                        <div className="flex flex-col items-center justify-center text-gray-400 group-hover:text-indigo-500 transition-colors">
-                            <Plus className="w-8 h-8 mb-1" />
-                            <span className="text-[10px]">上传</span>
-                        </div>
-                    )
-                )}
-            </div>
-            
-            <div className={`py-1.5 text-[10px] text-center font-medium truncate px-1 ${isCustomSelected ? 'bg-indigo-500 text-white' : 'bg-gray-100 text-gray-500'}`}>
-                自定义
-            </div>
+            {/* 预览图无论是否正在上传，都必须展示*/}
+            {hasCustomImage && (
+              <img 
+                src={proxySupabaseUrl(customPreviewUrl || customStyleUrl || "")}
+                className="w-full h-full object-cover"
+              />
+            )}
 
-            <input 
-                type="file" 
-                ref={fileInputRef} 
-                className="hidden" 
-                accept="image/*"
-                onChange={handleFileChange}
-            />
+            {/* 上传中的遮罩层（覆盖在预览图上方） */}
+            {isUploading && (
+              <div className="absolute inset-0 bg-black/40 backdrop-blur-sm flex flex-col items-center justify-center z-20">
+                <Loader2 className="w-6 h-6 text-white animate-spin mb-1" />
+                <span className="text-xs text-white/90">上传中...</span>
+              </div>
+            )}
+
+            {/* 没图时才显示上传提示 */}
+            {!hasCustomImage && !isUploading && (
+              <div className="flex flex-col items-center justify-center text-gray-400 group-hover:text-indigo-500 transition-colors">
+                <Plus className="w-8 h-8 mb-1" />
+                <span className="text-[10px]">上传</span>
+              </div>
+            )}
+
+            {/* 选中状态的蓝色覆盖 */}
+            {isCustomSelected && hasCustomImage && !isUploading && (
+              <div className="absolute inset-0 bg-indigo-500/20 flex items-center justify-center backdrop-blur-[1px]">
+                <div className="bg-indigo-500 text-white rounded-full p-1 shadow-sm">
+                  <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+                </div>
+              </div>
+            )}
+
+            {/* 替换按钮预览存在  非上传中才显示 */}
+            {hasCustomImage && !isUploading && (
+              <div 
+                onClick={handleReplaceClick}
+                className="absolute top-1 right-1 bg-black/50 hover:bg-black/70 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity z-30"
+                title="更换图片"
+              >
+                <RefreshCw className="w-3 h-3" />
+              </div>
+            )}
+          </div>
+
+          <div className={`py-1.5 text-[10px] text-center font-medium truncate px-1 ${isCustomSelected ? 'bg-indigo-500 text-white' : 'bg-gray-100 text-gray-500'}`}>
+            自定义
+          </div>
+
+          <input 
+            type="file" 
+            ref={fileInputRef} 
+            className="hidden" 
+            accept="image/*"
+            onChange={handleFileChange}
+          />
         </div>
 
       </div>

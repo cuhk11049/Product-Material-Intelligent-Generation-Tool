@@ -4,6 +4,7 @@
 import React from 'react';
 import clsx from 'clsx';
 import { motion } from 'framer-motion';
+import { proxySupabaseUrl } from '@/utils/supabase/proxySupabase';
 
 export interface MasonryImage {
   src: string;
@@ -108,7 +109,7 @@ const InspirationMasonry: React.FC<InspirationMasonryProps> = ({
           >
             <div className="relative w-full aspect-square">
               <img
-                src={item.src}
+                src={proxySupabaseUrl(item.src)}
                 alt={item.title}
                 loading="lazy"
                 referrerPolicy="no-referrer"

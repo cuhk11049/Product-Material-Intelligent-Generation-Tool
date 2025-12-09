@@ -3,6 +3,7 @@ import React, { useCallback } from 'react';
 import { UIMessage } from '@/src/types/index'; 
 import { Download, Film, Loader2, RotateCw } from 'lucide-react';
 import { Button } from '../ui/button';
+import { proxySupabaseUrl } from '@/utils/supabase/proxySupabase';
 
 // 格式化 JSON 风格的文本
 const formatMessageText = (text: string) => {
@@ -188,7 +189,7 @@ export const AIMessageCard: React.FC<AIMessageCardProps> = ({ message ,onMediaCl
                         mt-2 /* 保持与头像对齐 */
                     ">
                         <img
-                            src={imageUrl} 
+                            src={proxySupabaseUrl(imageUrl)} 
                             alt="AI生成图片"
                             onClick={() => imageUrl && onMediaClick(imageUrl, 'image')}
                             // 确保图片填满容器
@@ -232,10 +233,11 @@ export const AIMessageCard: React.FC<AIMessageCardProps> = ({ message ,onMediaCl
                         ">
                             <div className="relative w-full h-full">
                                 <video
-                                    src={videoUrl} 
+                                    src={proxySupabaseUrl(videoUrl)} 
                                     controls
                                     onClick={() => videoUrl && onMediaClick(videoUrl, 'video')}
                                     className="object-contain w-full h-full"
+                                    autoPlay={false}
                                 >
                                     您的浏览器不支持视频播放。
                                 </video>
