@@ -45,6 +45,7 @@ export const FloatingFileUploadBox: React.FC<FloatingFileUploadBoxProps> = ({
     } = useFileUploader(); 
 
     // 内部状态
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const [_, setUploadedFile] = useState<File | null>(null); // 仅用于逻辑，不渲染
     const [filePreviewUrl, setFilePreviewUrl] = useState<string | null>(null);
     const [finalImageUrl, setFinalImageUrl] = useState<string | null>(initialImageUrl || null);

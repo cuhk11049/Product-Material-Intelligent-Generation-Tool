@@ -385,6 +385,7 @@ export default function GeneratePage() {
 
                 try {
                     finalParsedData = JSON.parse(result.content);
+                // eslint-disable-next-line @typescript-eslint/no-unused-vars
                 } catch (e) {
                     console.error("JSON解析失败:", result.content);
                     finalResponseText = "AI 返回内容格式错误";
