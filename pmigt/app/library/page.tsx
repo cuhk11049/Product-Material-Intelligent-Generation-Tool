@@ -127,32 +127,89 @@ export default function LibraryPage() {
 };
 
   const handleCopy = async (e: React.MouseEvent<HTMLButtonElement>, asset: Asset) => {
-    e.stopPropagation();
-    
-    if (asset.type === 'video') {
-        await navigator.clipboard.writeText(asset.url);
-        toast.success("视频链接已复制");
-        return;
-    }
+      e.stopPropagation();
+      
+      // 1. 如果是视频，直接复制链接
+      if (asset.type === 'video') {
+          await navigator.clipboard.writeText(asset.url);
+          toast.success("视频链接已复制");
+          return;
+      }
 
-    // 1. 创建 Toast 并获取其 ID，
-    const toastId = toast.loading("复制中...");
+      const toastId = toast.loading("正在获取图片内容...");
 
-    try {
-        const response = await fetch(asset.url);
-        const blob = await response.blob();
-        await navigator.clipboard.write([new ClipboardItem({ [blob.type]: blob })]);
-        
-        toast.success("图片已复制", { id: toastId });
-        
-    } catch (error) {
-        console.warn("复制图片内容失败，降级为复制链接", error);
-        await navigator.clipboard.writeText(asset.url);
-        
-        toast.success("链接已复制", { id: toastId });
-    }
-};
-  
+      try {
+          const imgUrl = proxySupabaseUrl(asset.url);
+          
+          const response = await fetch(imgUrl, {
+              mode: 'cors', 
+              credentials: 'omit', // 如果是公开 bucket，通常不需要凭证
+          });
+
+          if (!response.ok) throw new Error("Fetch failed");
+
+          const blob = await response.blob();
+
+          // 将图片转换为 PNG
+          const pngBlob = await convertToPng(blob);
+
+          await navigator.clipboard.write([
+              new ClipboardItem({ 
+                  [pngBlob.type]: pngBlob 
+              })
+          ]);
+          
+          toast.success("图片内容已复制到剪贴板", { id: toastId });
+          
+      } catch (error) {
+          console.error("复制图片二进制失败:", error);
+          
+          // 降级处理
+          try {
+            await navigator.clipboard.writeText(asset.url);
+            toast.info("已复制图片链接 (浏览器安全策略限制复制内容)", { id: toastId });
+          } catch {
+            toast.error("复制失败", { id: toastId });
+          }
+      }
+  };
+
+// --- 辅助函数：将任意图片 Blob 转换为 PNG Blob ---
+  const convertToPng = (blob: Blob): Promise<Blob> => {
+      return new Promise((resolve, reject) => {
+          const img = new Image();
+          const url = URL.createObjectURL(blob);
+          
+          img.onload = () => {
+              const canvas = document.createElement('canvas');
+              canvas.width = img.width;
+              canvas.height = img.height;
+              const ctx = canvas.getContext('2d');
+              if (!ctx) {
+                  reject(new Error('Canvas context failed'));
+                  return;
+              }
+              ctx.drawImage(img, 0, 0);
+              
+              canvas.toBlob((pngBlob) => {
+                  if (pngBlob) {
+                      resolve(pngBlob);
+                  } else {
+                      reject(new Error('Canvas to Blob failed'));
+                  }
+                  URL.revokeObjectURL(url);
+              }, 'image/png');
+          };
+          
+          img.onerror = (err) => {
+              URL.revokeObjectURL(url);
+              reject(err);
+          };
+          
+          img.src = url;
+      });
+  };
+
   // --- 将 tabs 数据定义为一个符合 Tab 接口的数组 ---
   const tabs: Tab[] = [
     { id: 'all', label: '全部', icon: MoreHorizontal },
